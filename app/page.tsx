@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
-import { TrendingUp, TrendingDown, Activity, Blocks, DollarSign, Zap, Users, RefreshCw } from "lucide-react"
+import { TrendingUp, TrendingDown, Activity, Blocks, DollarSign, Zap, Users, RefreshCw, Github } from "lucide-react"
 import { PriceChart } from "@/components/price-chart"
 import { TransactionList } from "@/components/transaction-list"
 import { MempoolStats } from "@/components/mempool-stats"
@@ -140,6 +139,14 @@ export default function BitcoinExplorer() {
               <SearchBar />
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open("https://github.com/fabohax/utxo.watch", "_blank")}
+              >
+                <Github className="w-4 h-4 mr-2" />
+                Source
+              </Button>
               <ThemeToggle />
               <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
                 <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
@@ -254,9 +261,38 @@ export default function BitcoinExplorer() {
           </TabsContent>
         </Tabs>
         <div className="my-4">
-        <MempoolStats mempoolSize={mempoolSize} avgFee={avgFee} transactions={transactions}/>
+          <MempoolStats mempoolSize={mempoolSize} avgFee={avgFee} transactions={transactions} />
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t mt-12">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-xs">₿</span>
+              </div>
+              <span className="text-sm text-muted-foreground">utxo.watch - Bitcoin Network Explorer</span>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <a
+                href="https://github.com/fabohax/utxo.watch"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 hover:text-foreground transition-colors"
+              >
+                <Github className="w-4 h-4" />
+                Source Code
+              </a>
+              <span>•</span>
+              <span>Built with v0.dev</span>
+              <span>•</span>
+              <span>© 2024</span>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

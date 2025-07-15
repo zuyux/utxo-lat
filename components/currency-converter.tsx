@@ -1,232 +1,215 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowUpDown, Calculator } from "lucide-react"
-import { Button } from "@/components/ui/button"
-
-interface ExchangeRates {
-  USD: number
-  EUR: number
-  GBP: number
-  JPY: number
-  CAD: number
-  AUD: number
-  CHF: number
-  CNY: number
-}
+import { Separator } from "@/components/ui/separator"
 
 // Mock exchange rates (in a real app, these would come from an API)
-const mockExchangeRates: ExchangeRates = {
+const mockExchangeRates = {
   USD: 45234.67,
-  EUR: 41250.32,
-  GBP: 35678.9,
-  JPY: 6789012.45,
-  CAD: 61234.56,
-  AUD: 67890.12,
-  CHF: 40123.45,
-  CNY: 325678.9,
+  EUR: 41562.33,
+  GBP: 35789.45,
+  JPY: 6587234.12,
+  CAD: 61234.89,
+  AUD: 67543.21,
+  CHF: 40876.54,
+  CNY: 327654.32,
 }
 
 const currencies = [
-  { code: "USD", symbol: "$", name: "US Dollar" },
-  { code: "EUR", symbol: "€", name: "Euro" },
-  { code: "GBP", symbol: "£", name: "British Pound" },
-  { code: "JPY", symbol: "¥", name: "Japanese Yen" },
-  { code: "CAD", symbol: "C$", name: "Canadian Dollar" },
-  { code: "AUD", symbol: "A$", name: "Australian Dollar" },
-  { code: "CHF", symbol: "CHF", name: "Swiss Franc" },
-  { code: "CNY", symbol: "¥", name: "Chinese Yuan" },
+  { code: "USD", name: "US Dollar", symbol: "$" },
+  { code: "EUR", name: "Euro", symbol: "€" },
+  { code: "GBP", name: "British Pound", symbol: "£" },
+  { code: "JPY", name: "Japanese Yen", symbol: "¥" },
+  { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
+  { code: "AUD", name: "Australian Dollar", symbol: "A$" },
+  { code: "CHF", name: "Swiss Franc", symbol: "CHF" },
+  { code: "CNY", name: "Chinese Yuan", symbol: "¥" },
 ]
 
 export function CurrencyConverter() {
-  const [satoshis, setSatoshis] = useState("100000000") // 1 BTC in satoshis
   const [selectedCurrency, setSelectedCurrency] = useState("USD")
+  const [satoshiAmount, setSatoshiAmount] = useState("")
   const [fiatAmount, setFiatAmount] = useState("")
+  const [exchangeRates, setExchangeRates] = useState(mockExchangeRates)
   const [conversionMode, setConversionMode] = useState<"sats-to-fiat" | "fiat-to-sats">("sats-to-fiat")
-  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(mockExchangeRates)
 
-  // Simulate real-time exchange rate updates
+  const selectedCurrencyData = currencies.find((c) => c.code === selectedCurrency)
+  const btcRate = exchangeRates[selectedCurrency as keyof typeof exchangeRates]
+  const satoshiRate = btcRate / 100000000 // 1 BTC = 100,000,000 satoshis
+
+  // Simulate real-time rate updates
   useEffect(() => {
     const interval = setInterval(() => {
-      setExchangeRates((prev) => ({
-        USD: prev.USD + (Math.random() - 0.5) * 100,
-        EUR: prev.EUR + (Math.random() - 0.5) * 90,
-        GBP: prev.GBP + (Math.random() - 0.5) * 80,
-        JPY: prev.JPY + (Math.random() - 0.5) * 10000,
-        CAD: prev.CAD + (Math.random() - 0.5) * 120,
-        AUD: prev.AUD + (Math.random() - 0.5) * 130,
-        CHF: prev.CHF + (Math.random() - 0.5) * 85,
-        CNY: prev.CNY + (Math.random() - 0.5) * 600,
-      }))
+      setExchangeRates((prev) => {
+        const newRates = { ...prev }
+        Object.keys(newRates).forEach((currency) => {
+          const volatility = 0.001 // 0.1% volatility
+          const change = newRates[currency as keyof typeof newRates] * volatility * (Math.random() - 0.5) * 2
+          newRates[currency as keyof typeof newRates] = Math.max(
+            newRates[currency as keyof typeof newRates] + change,
+            1000,
+          )
+        })
+        return newRates
+      })
     }, 5000)
 
     return () => clearInterval(interval)
   }, [])
 
-  // Convert satoshis to fiat
-  const convertSatsToFiat = (sats: string, currency: string) => {
-    const satoshiAmount = Number.parseFloat(sats) || 0
-    const btcAmount = satoshiAmount / 100000000 // Convert sats to BTC
-    const rate = exchangeRates[currency as keyof ExchangeRates] || 0
-    return btcAmount * rate
-  }
-
-  // Convert fiat to satoshis
-  const convertFiatToSats = (fiat: string, currency: string) => {
-    const fiatAmount = Number.parseFloat(fiat) || 0
-    const rate = exchangeRates[currency as keyof ExchangeRates] || 0
-    const btcAmount = fiatAmount / rate
-    return Math.round(btcAmount * 100000000) // Convert BTC to sats
-  }
-
-  // Handle satoshi input change
   const handleSatoshiChange = (value: string) => {
-    setSatoshis(value)
-    if (conversionMode === "sats-to-fiat") {
-      const converted = convertSatsToFiat(value, selectedCurrency)
-      setFiatAmount(converted.toFixed(2))
+    setSatoshiAmount(value)
+    if (value && !isNaN(Number(value))) {
+      const fiatValue = Number(value) * satoshiRate
+      setFiatAmount(fiatValue.toFixed(2))
+    } else {
+      setFiatAmount("")
     }
   }
 
-  // Handle fiat input change
   const handleFiatChange = (value: string) => {
     setFiatAmount(value)
-    if (conversionMode === "fiat-to-sats") {
-      const converted = convertFiatToSats(value, selectedCurrency)
-      setSatoshis(converted.toString())
+    if (value && !isNaN(Number(value))) {
+      const satoshiValue = Number(value) / satoshiRate
+      setSatoshiAmount(Math.round(satoshiValue).toString())
+    } else {
+      setSatoshiAmount("")
     }
   }
 
-  // Handle currency change
-  const handleCurrencyChange = (currency: string) => {
-    setSelectedCurrency(currency)
-    if (conversionMode === "sats-to-fiat" && satoshis) {
-      const converted = convertSatsToFiat(satoshis, currency)
-      setFiatAmount(converted.toFixed(2))
-    } else if (conversionMode === "fiat-to-sats" && fiatAmount) {
-      const converted = convertFiatToSats(fiatAmount, currency)
-      setSatoshis(converted.toString())
-    }
+  const handleQuickConvert = (btcAmount: number) => {
+    const satoshis = btcAmount * 100000000
+    setSatoshiAmount(satoshis.toString())
+    const fiatValue = satoshis * satoshiRate
+    setFiatAmount(fiatValue.toFixed(2))
   }
 
-  // Toggle conversion mode
   const toggleConversionMode = () => {
-    const newMode = conversionMode === "sats-to-fiat" ? "fiat-to-sats" : "sats-to-fiat"
-    setConversionMode(newMode)
-
-    // Recalculate based on new mode
-    if (newMode === "sats-to-fiat" && satoshis) {
-      const converted = convertSatsToFiat(satoshis, selectedCurrency)
-      setFiatAmount(converted.toFixed(2))
-    } else if (newMode === "fiat-to-sats" && fiatAmount) {
-      const converted = convertFiatToSats(fiatAmount, selectedCurrency)
-      setSatoshis(converted.toString())
-    }
+    setConversionMode((prev) => (prev === "sats-to-fiat" ? "fiat-to-sats" : "sats-to-fiat"))
+    // Clear inputs when switching modes
+    setSatoshiAmount("")
+    setFiatAmount("")
   }
-
-  const selectedCurrencyInfo = currencies.find((c) => c.code === selectedCurrency)
-  const currentRate = exchangeRates[selectedCurrency as keyof ExchangeRates]
-
-  // Auto-convert on mount
-  useEffect(() => {
-    if (conversionMode === "sats-to-fiat" && satoshis) {
-      const converted = convertSatsToFiat(satoshis, selectedCurrency)
-      setFiatAmount(converted.toFixed(2))
-    }
-  }, [exchangeRates, selectedCurrency])
 
   return (
-    <Card className="w-full">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Calculator className="w-4 h-4" />
           Currency Converter
         </CardTitle>
+        <CardDescription>Convert between satoshis and fiat currencies</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Exchange Rate Display */}
+        <div className="text-center p-3 bg-muted rounded-lg">
+          <div className="text-sm text-muted-foreground">1 BTC =</div>
+          <div className="text-lg font-bold">
+            {selectedCurrencyData?.symbol}
+            {btcRate.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </div>
+          <div className="text-xs text-muted-foreground">{selectedCurrencyData?.name}</div>
+        </div>
 
+        {/* Currency Selection */}
+        <div className="space-y-2">
+          <Label htmlFor="currency">Currency</Label>
+          <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select currency" />
+            </SelectTrigger>
+            <SelectContent>
+              {currencies.map((currency) => (
+                <SelectItem key={currency.code} value={currency.code}>
+                  {currency.symbol} {currency.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-        {/* Input Fields */}
-        <div className="space-y-4">
+        {/* Conversion Mode Toggle */}
+        <div className="flex items-center justify-center">
+          <Button variant="outline" size="sm" onClick={toggleConversionMode}>
+            <ArrowUpDown className="w-4 h-4 mr-2" />
+            {conversionMode === "sats-to-fiat" ? "Sats → Fiat" : "Fiat → Sats"}
+          </Button>
+        </div>
+
+        {/* Conversion Inputs */}
+        <div className="space-y-3">
           <div className="space-y-2">
-            <Label htmlFor="satoshis">Satoshis</Label>
+            <Label htmlFor="satoshi">Satoshis</Label>
             <Input
-              id="satoshis"
+              id="satoshi"
               type="number"
-              placeholder="Enter satoshis..."
-              value={satoshis}
+              placeholder="Enter satoshis"
+              value={satoshiAmount}
               onChange={(e) => handleSatoshiChange(e.target.value)}
-              className="font-mono"
             />
-            <div className="text-xs text-muted-foreground">
-              {satoshis && !isNaN(Number(satoshis)) ? `${(Number(satoshis) / 100000000).toFixed(8)} BTC` : "0 BTC"}
-            </div>
+            {satoshiAmount && (
+              <div className="text-xs text-muted-foreground">
+                = {(Number(satoshiAmount) / 100000000).toFixed(8)} BTC
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="fiat">
-              {selectedCurrencyInfo?.name} ({selectedCurrencyInfo?.symbol})
-            </Label>
+            <Label htmlFor="fiat">{selectedCurrencyData?.name}</Label>
             <Input
               id="fiat"
               type="number"
-              placeholder={`Enter ${selectedCurrency}...`}
+              placeholder={`Enter ${selectedCurrencyData?.name}`}
               value={fiatAmount}
               onChange={(e) => handleFiatChange(e.target.value)}
-              step="0.01"
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-3 space-x-2">
-          {/* Currency Selection */}
-          <div className="col-span-2">
-            <Select value={selectedCurrency} onValueChange={handleCurrencyChange}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {currencies.map((currency) => (
-                  <SelectItem key={currency.code} value={currency.code}>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{currency.symbol}</span>
-                      <span>{currency.code}</span>
-                      <span className="text-muted-foreground text-sm">- {currency.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-                  {/* Conversion Mode Toggle */}
-          <div className="flex justify-center">
-            <Button variant="outline" size="sm" onClick={toggleConversionMode} className="py-2 bg-transparent">
-              <ArrowUpDown className="w-4 h-4" />
-              {conversionMode === "sats-to-fiat" ? "Sats → Fiat" : "Fiat → Sats"}
+        <Separator />
+
+        {/* Quick Convert Buttons */}
+        <div className="space-y-2">
+          <Label>Quick Convert</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" size="sm" onClick={() => handleQuickConvert(1)}>
+              1 BTC
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleQuickConvert(0.1)}>
+              0.1 BTC
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleQuickConvert(0.01)}>
+              0.01 BTC
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleQuickConvert(0.001)}>
+              0.001 BTC
             </Button>
           </div>
         </div>
 
-        {/* Quick Conversion Buttons */}
-        <div className="space-y-2">
-          <Label className="text-sm">Quick Convert</Label>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" size="sm" onClick={() => handleSatoshiChange("100000000")} className="text-xs">
-              1 BTC
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => handleSatoshiChange("10000000")} className="text-xs">
-              0.1 BTC
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => handleSatoshiChange("1000000")} className="text-xs">
-              0.01 BTC
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => handleSatoshiChange("100000")} className="text-xs">
-              0.001 BTC
-            </Button>
+        {/* Common Values Reference */}
+        <div className="text-xs text-muted-foreground space-y-1">
+          <div className="font-medium">Common Values:</div>
+          <div>
+            1 sat = {selectedCurrencyData?.symbol}
+            {satoshiRate.toFixed(8)}
+          </div>
+          <div>
+            1,000 sats = {selectedCurrencyData?.symbol}
+            {(satoshiRate * 1000).toFixed(6)}
+          </div>
+          <div>
+            100,000 sats = {selectedCurrencyData?.symbol}
+            {(satoshiRate * 100000).toFixed(4)}
           </div>
         </div>
       </CardContent>

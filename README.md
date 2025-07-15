@@ -1,30 +1,60 @@
-# Bitcoin explorer build
+# utxo.watch
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+**Bitcoin UTXO Tracker — Built for Watch-Only Precision**
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/fabohaxs-projects/v0-bitcoin-explorer-build)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/4KbykqARp0n)
+`utxo.watch` is a lightweight tool for monitoring Bitcoin Network.
 
-## Overview
+## Features
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+- Monitor any Bitcoin address (Legacy, SegWit, Taproot)
+- Track individual UTXOs: value, confirmations, status
+- Watch-only mode by design
+- Minimalist frontend and optional CLI mode
+- WebSocket support for real-time updates
+- API-ready backend for custom integrations
 
-## Deployment
+## Stack
 
-Your project is live at:
+- Backend: Node.js + ElectrumX or Bitcoin Core RPC
+- Frontend: React + Tailwind (or headless CLI)
+- Database: JSON store or SQLite
+- Realtime: WebSockets
 
-**[https://vercel.com/fabohaxs-projects/v0-bitcoin-explorer-build](https://vercel.com/fabohaxs-projects/v0-bitcoin-explorer-build)**
+## Getting Started
 
-## Build your app
+```bash
+git clone https://github.com/fabohax/utxo.watch.git
+cd utxo.watch
 
-Continue building your app on:
+npm install
+npm run dev
+````
 
-**[https://v0.dev/chat/projects/4KbykqARp0n](https://v0.dev/chat/projects/4KbykqARp0n)**
+## Usage
 
-## How It Works
+1. Add a Bitcoin address to watch
+2. View its UTXOs with confirmation and status
+3. Receive updates when UTXOs are confirmed or spent
+4. Export or integrate data as needed
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+## Use Cases
+
+* Monitor cold storage balances
+* Track multisig or vault address activity
+* Integrate UTXO data into bots or dashboards
+* Build custom watchlists without compromising privacy
+
+## Roadmap
+
+* Address labeling and grouping
+* Notification system (webhooks, email)
+* Better taproot support
+* Multi-wallet watchlists
+
+## License
+
+MIT License
+
+## Author
+
+@fabohax - [github.com/fabohax](https://github.com/fabohax)
