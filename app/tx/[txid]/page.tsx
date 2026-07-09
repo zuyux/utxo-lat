@@ -131,7 +131,7 @@ export default function TransactionPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Transaction Not Found</h1>
-            <p className="text-muted-foreground">The transaction you're looking for doesn't exist.</p>
+            <p className="text-muted-foreground">The transaction you searched for does not exist.</p>
           </div>
         </div>
       </div>

@@ -8,9 +8,12 @@ import { Toaster } from "sonner"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "utxo.watch - Bitcoin Explorer",
+  title: {
+    default: "utxo.watch — Bitcoin Explorer",
+    template: "%s | utxo.watch",
+  },
   description: "Real-time Bitcoin network explorer with price charts, transactions, and mempool data",
-    generator: 'v0.dev'
+  metadataBase: new URL("https://utxo.watch"),
 }
 
 export default function RootLayout({

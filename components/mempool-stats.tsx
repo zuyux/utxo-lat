@@ -44,7 +44,7 @@ export function MempoolStats({ mempoolSize, avgFee, transactions }: MempoolStats
               <div className="text-sm text-muted-foreground">Total Transactions</div>
             </div>
             <div className="text-center p-4 border rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{avgFee}</div>
+              <div className="text-2xl font-bold text-green-600">{avgFee.toFixed(1)}</div>
               <div className="text-sm text-muted-foreground">Avg Fee (sat/vB)</div>
             </div>
           </div>
@@ -105,7 +105,7 @@ export function MempoolStats({ mempoolSize, avgFee, transactions }: MempoolStats
                 <div className="font-medium">Next Block</div>
                 <div className="text-sm text-muted-foreground">~10 minutes</div>
               </div>
-              <Badge className="bg-green-100 text-green-800">{avgFee} sat/vB</Badge>
+              <Badge className="bg-green-100 text-green-800">{Math.ceil(avgFee)} sat/vB</Badge>
             </div>
             <div className="flex justify-between items-center p-3 border rounded-lg">
               <div>

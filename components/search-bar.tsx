@@ -11,41 +11,26 @@ import { toast } from "sonner"
 
 export function SearchBar() {
   const [query, setQuery] = useState("")
-  const [isSearching, setIsSearching] = useState(false)
   const router = useRouter()
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (!query.trim()) return
 
-    setIsSearching(true)
+    const trimmedQuery = query.trim()
 
-    try {
-      // Detect if it's a transaction ID (64 hex characters), address, or block
-      const trimmedQuery = query.trim()
-
-      if (trimmedQuery.length === 64 && /^[a-fA-F0-9]+$/.test(trimmedQuery)) {
-        // Could be transaction ID or block hash
-        // For simplicity, we'll assume it's a transaction first, but in real implementation
-        // you'd check both
-        router.push(`/tx/${trimmedQuery}`)
-      } else if (/^\d+$/.test(trimmedQuery)) {
-        // Block height (numeric)
-        router.push(`/block/${trimmedQuery}`)
-      } else if (
-        (trimmedQuery.startsWith("1") || trimmedQuery.startsWith("3") || trimmedQuery.startsWith("bc1")) &&
-        trimmedQuery.length >= 26 &&
-        trimmedQuery.length <= 62
-      ) {
-        // Bitcoin address
-        router.push(`/address/${trimmedQuery}`)
-      } else {
-        toast.error("Invalid transaction ID, Bitcoin address, or block height/hash format")
-      }
-    } catch (error) {
-      toast.error("Search failed. Please try again.")
-    } finally {
-      setIsSearching(false)
+    if (trimmedQuery.length === 64 && /^[a-fA-F0-9]+$/.test(trimmedQuery)) {
+      router.push(`/tx/${trimmedQuery}`)
+    } else if (/^\d+$/.test(trimmedQuery)) {
+      router.push(`/block/${trimmedQuery}`)
+    } else if (
+      /^(1|3|bc1|BC1)/.test(trimmedQuery) &&
+      trimmedQuery.length >= 26 &&
+      trimmedQuery.length <= 90
+    ) {
+      router.push(`/address/${encodeURIComponent(trimmedQuery)}`)
+    } else {
+      toast.error("Enter a valid transaction ID, Bitcoin address, or block height")
     }
   }
 
@@ -53,13 +38,14 @@ export function SearchBar() {
     <form onSubmit={handleSearch} className="flex gap-2">
       <Input
         type="text"
-        placeholder="Search by transaction ID, address, or block..."
+        placeholder="Search block, transaction, or address"
+        aria-label="Search the Bitcoin explorer"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        className="flex-1"
+        className="h-10 flex-1"
       />
-      <Button type="submit" size="sm" disabled={isSearching}>
-        <Search className="w-4 h-4" />
+      <Button type="submit" size="icon" className="size-10 shrink-0" aria-label="Search">
+        <Search className="size-4" />
       </Button>
     </form>
   )

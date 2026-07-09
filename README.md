@@ -23,12 +23,30 @@
 ## Getting Started
 
 ```bash
-git clone https://github.com/fabohax/utxo.watch.git
+git clone https://github.com/zuyux/utxo-watch.git
 cd utxo.watch
 
 npm install
 npm run dev
-````
+```
+
+### Linux file watcher limits
+
+If development fails with `ENOSPC: System limit for number of file watchers reached`,
+first close editor windows opened at a broad directory such as `/home`, then raise the
+per-user inotify limits:
+
+```bash
+sudo tee /etc/sysctl.d/99-inotify.conf >/dev/null <<'EOF'
+fs.inotify.max_user_watches=524288
+fs.inotify.max_user_instances=512
+fs.inotify.max_queued_events=32768
+EOF
+sudo sysctl --system
+```
+
+As a temporary fallback, run `pnpm dev:poll`. Polling avoids inotify exhaustion but
+uses more CPU, so it should not be the default.
 
 ## Usage
 
