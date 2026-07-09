@@ -82,6 +82,13 @@ export interface BlockApi {
   extras?: {
     reward?: number
     totalFees?: number
+    medianFee?: number
+    avgFeeRate?: number
+    feeRange?: number[]
+    totalInputs?: number
+    totalOutputs?: number
+    totalOutputAmt?: number
+    virtualSize?: number
     pool?: { name?: string }
   }
 }

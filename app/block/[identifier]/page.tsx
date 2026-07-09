@@ -40,6 +40,12 @@ interface BlockDetail {
   transactionCount: number
   totalFees: string
   blockReward: string
+  medianFeeRate: number | null
+  averageFeeRate: number | null
+  feeRange: number[]
+  totalInputs: number | null
+  totalOutputs: number | null
+  totalTransferred: string | null
   miner: string
   confirmations: number
   transactions: BlockTransaction[]
@@ -69,12 +75,19 @@ const fetchBlockDetail = async (identifier: string): Promise<BlockDetail> => {
   const hash = /^\d+$/.test(identifier)
     ? await apiFetchText(`/block-height/${identifier}`)
     : identifier
-  const [block, status, tip, transactions] = await Promise.all([
+  const [baseBlock, status, tip, transactions] = await Promise.all([
     apiFetch<BlockApi>(`/v1/block/${hash}`),
     apiFetch<{ next_best?: string }>(`/block/${hash}/status`),
     apiFetch<number>("/blocks/tip/height"),
     apiFetch<MempoolTransaction[]>(`/block/${hash}/txs/0`),
   ])
+  const detailedBlock = await apiFetch<BlockApi[]>(`/v1/blocks/${baseBlock.height}`)
+    .then((blocks) => blocks.find((candidate) => candidate.id === baseBlock.id))
+    .catch(() => undefined)
+  const block: BlockApi = {
+    ...baseBlock,
+    extras: detailedBlock?.extras ?? baseBlock.extras,
+  }
   const totalFees = block.extras?.totalFees ?? 0
   const reward = block.extras?.reward ?? 0
   return {
@@ -92,6 +105,16 @@ const fetchBlockDetail = async (identifier: string): Promise<BlockDetail> => {
     transactionCount: block.tx_count,
     totalFees: satsToBtc(totalFees),
     blockReward: satsToBtc(Math.max(0, reward - totalFees)),
+    medianFeeRate: block.extras?.medianFee ?? null,
+    averageFeeRate: totalFees > 0
+      ? totalFees / (block.extras?.virtualSize ?? block.weight / 4)
+      : null,
+    feeRange: block.extras?.feeRange ?? [],
+    totalInputs: block.extras?.totalInputs ?? null,
+    totalOutputs: block.extras?.totalOutputs ?? null,
+    totalTransferred: block.extras?.totalOutputAmt != null
+      ? satsToBtc(block.extras.totalOutputAmt)
+      : null,
     miner: block.extras?.pool?.name || "Unknown pool",
     confirmations: Math.max(0, tip - block.height + 1),
     transactions: transactions.map(mapTransaction),
@@ -365,6 +388,59 @@ export default function BlockPage() {
                 </CardContent>
               </Card>
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Fee Distribution & Transaction Flow</CardTitle>
+                <CardDescription>
+                  Whole-block statistics across all {block.transactionCount.toLocaleString()} transactions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-6">
+                  <BlockMetric
+                    label="Median fee rate"
+                    value={block.medianFeeRate != null ? `${formatFeeRate(block.medianFeeRate)} sat/vB` : "Unavailable"}
+                  />
+                  <BlockMetric
+                    label="Average fee rate"
+                    value={block.averageFeeRate != null ? `${formatFeeRate(block.averageFeeRate)} sat/vB` : "Unavailable"}
+                  />
+                  <BlockMetric
+                    label="Fee range"
+                    value={block.feeRange.length > 0
+                      ? `${formatFeeRate(Math.min(...block.feeRange))}–${formatFeeRate(Math.max(...block.feeRange))} sat/vB`
+                      : "Unavailable"}
+                  />
+                  <BlockMetric
+                    label="Total inputs"
+                    value={block.totalInputs?.toLocaleString() ?? "Unavailable"}
+                  />
+                  <BlockMetric
+                    label="Total outputs"
+                    value={block.totalOutputs?.toLocaleString() ?? "Unavailable"}
+                  />
+                  <BlockMetric
+                    label="Transferred value"
+                    value={block.totalTransferred ? `${block.totalTransferred} BTC` : "Unavailable"}
+                    detail="Sum of all outputs"
+                  />
+                </div>
+
+                {block.feeRange.length > 0 && (
+                  <div className="mt-6 border-t pt-4">
+                    <p className="text-xs text-muted-foreground">Fee-rate distribution bands</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {block.feeRange.map((fee, index) => (
+                        <span key={`${fee}-${index}`} className="rounded-md bg-secondary px-2 py-1 text-xs font-medium">
+                          {formatFeeRate(fee)} sat/vB
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="transactions">
@@ -496,4 +572,18 @@ function TransactionMetric({ label, value }: { label: string; value: string }) {
       <p className="mt-0.5 break-words font-medium">{value}</p>
     </div>
   )
+}
+
+function BlockMetric({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 break-words font-semibold">{value}</p>
+      {detail && <p className="mt-0.5 text-[10px] text-muted-foreground">{detail}</p>}
+    </div>
+  )
+}
+
+function formatFeeRate(value: number) {
+  return value < 1 ? value.toFixed(2) : value.toFixed(1)
 }

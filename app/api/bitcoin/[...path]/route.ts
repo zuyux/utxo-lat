@@ -9,7 +9,7 @@ async function requestUpstream(base: string, path: string, search: string) {
   return fetch(`${base}/${path}${search}`, {
     cache: "no-store",
     headers: { Accept: "application/json, text/plain" },
-    signal: AbortSignal.timeout(8_000),
+    signal: AbortSignal.timeout(path === "v1/fees/mempool-blocks" ? 15_000 : 8_000),
   })
 }
 

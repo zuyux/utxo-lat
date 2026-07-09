@@ -2,7 +2,7 @@
 
 import { PointerEvent, useCallback, useEffect, useRef, useState } from "react"
 
-import { apiFetch } from "@/lib/mempool"
+import { apiFetch, satsToBtc } from "@/lib/mempool"
 
 const CELL_SIZE = 8
 const CELL_GAP = 2
@@ -22,6 +22,15 @@ interface FeeRecommendations {
   hourFee: number
   economyFee: number
   minimumFee: number
+}
+
+interface ProjectedBlock {
+  blockSize: number
+  blockVSize: number
+  nTx: number
+  totalFees: number
+  medianFee: number
+  feeRange: number[]
 }
 
 interface Cell {
@@ -81,6 +90,8 @@ export function MempoolCanvas() {
   const dimensionsRef = useRef({ columns: 0, rows: 0 })
   const [stats, setStats] = useState<MempoolStats | null>(null)
   const [fees, setFees] = useState<FeeRecommendations | null>(null)
+  const [projectedBlocks, setProjectedBlocks] = useState<ProjectedBlock[]>([])
+  const [projectionError, setProjectionError] = useState("")
   const [vbytesPerCell, setVbytesPerCell] = useState(MIN_VBYTES_PER_CELL)
   const [hovered, setHovered] = useState<HoveredCell | null>(null)
   const [error, setError] = useState("")
@@ -135,13 +146,22 @@ export function MempoolCanvas() {
     let active = true
     const load = async () => {
       try {
-        const [nextStats, nextFees] = await Promise.all([
+        const [statsResult, feesResult, blocksResult] = await Promise.allSettled([
           apiFetch<MempoolStats>("/mempool"),
-          apiFetch<FeeRecommendations>("/v1/fees/recommended"),
+          apiFetch<FeeRecommendations>("/v1/fees/precise"),
+          apiFetch<ProjectedBlock[]>("/v1/fees/mempool-blocks"),
         ])
         if (!active) return
-        setStats(nextStats)
-        setFees(nextFees)
+        if (statsResult.status === "rejected") throw statsResult.reason
+        if (feesResult.status === "rejected") throw feesResult.reason
+        setStats(statsResult.value)
+        setFees(feesResult.value)
+        if (blocksResult.status === "fulfilled") {
+          setProjectedBlocks(blocksResult.value)
+          setProjectionError("")
+        } else {
+          setProjectionError("Projection temporarily unavailable")
+        }
         setError("")
       } catch (requestError) {
         if (!active) return
@@ -189,6 +209,15 @@ export function MempoolCanvas() {
         { label: `< ${fees.hourFee} sat/vB`, color: colors[3] },
       ]
     : []
+  const feeEstimates = fees
+    ? [
+        { label: "Next block", value: fees.fastestFee, detail: "Highest priority" },
+        { label: "30 minutes", value: fees.halfHourFee, detail: "About 3 blocks" },
+        { label: "1 hour", value: fees.hourFee, detail: "About 6 blocks" },
+        { label: "Economy", value: fees.economyFee, detail: "No time target" },
+        { label: "Minimum relay", value: fees.minimumFee, detail: "Provider minimum" },
+      ]
+    : []
 
   return (
     <section className="mt-12" aria-labelledby="mempool-heading">
@@ -213,10 +242,24 @@ export function MempoolCanvas() {
             <p className="text-[10px] text-muted-foreground">waiting</p>
           </div>
           <div>
-            <p className="text-xs font-medium">{fees ? `${fees.fastestFee} sat/vB` : "—"}</p>
-            <p className="text-[10px] text-muted-foreground">next block</p>
+            <p className="text-xs font-medium">{stats ? `${(stats.total_fee / 100_000_000).toFixed(4)} BTC` : "—"}</p>
+            <p className="text-[10px] text-muted-foreground">queued fees</p>
           </div>
         </div>
+      </div>
+
+      <div className="mb-3 grid grid-cols-2 border sm:grid-cols-5">
+        {fees
+          ? feeEstimates.map((estimate) => (
+              <div key={estimate.label} className="border-b p-3 last:border-b-0 even:border-l sm:border-b-0 sm:border-l sm:first:border-l-0">
+                <p className="text-[10px] text-muted-foreground">{estimate.label}</p>
+                <p className="mt-1 text-sm font-semibold">{formatFee(estimate.value)} sat/vB</p>
+                <p className="mt-0.5 text-[9px] text-muted-foreground">{estimate.detail}</p>
+              </div>
+            ))
+          : Array.from({ length: 5 }, (_, index) => (
+              <div key={index} className="h-[70px] animate-pulse border-b bg-muted/40 even:border-l sm:border-b-0 sm:border-l sm:first:border-l-0" />
+            ))}
       </div>
 
       <div className="relative overflow-hidden border-y py-3">
@@ -259,6 +302,67 @@ export function MempoolCanvas() {
           1 cell = {(vbytesPerCell / 1_000).toLocaleString()} kvB · live fee histogram
         </p>
       </div>
+
+      <div className="mt-8">
+        <div className="mb-3 flex items-end justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-semibold">Projected mempool blocks</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Live templates ordered by effective fee rate
+            </p>
+          </div>
+          <p className="text-[10px] text-muted-foreground">refreshes every 30s</p>
+        </div>
+
+        {projectionError && projectedBlocks.length === 0 ? (
+          <p className="border-y py-6 text-sm text-muted-foreground">{projectionError}</p>
+        ) : projectedBlocks.length === 0 ? (
+          <div className="flex gap-3 overflow-hidden border-y py-3">
+            {Array.from({ length: 4 }, (_, index) => (
+              <div key={index} className="h-32 w-44 shrink-0 animate-pulse rounded-md bg-muted/40" />
+            ))}
+          </div>
+        ) : (
+          <div className="flex snap-x gap-3 overflow-x-auto border-y py-3">
+            {projectedBlocks.map((block, index) => {
+              const minimumFee = Math.min(...block.feeRange)
+              const maximumFee = Math.max(...block.feeRange)
+              const isBacklog = block.blockVSize > 2_000_000
+              return (
+                <div key={`${index}-${block.blockVSize}`} className="w-48 shrink-0 snap-start rounded-md border bg-card p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold">{isBacklog ? "Backlog" : `Block +${index + 1}`}</p>
+                    <span className="text-[9px] text-muted-foreground">
+                      {isBacklog ? "remaining" : index === 0 ? "next" : `queue #${index + 1}`}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
+                    <ProjectionMetric label="Transactions" value={block.nTx.toLocaleString()} />
+                    <ProjectionMetric label="Size" value={`${(block.blockVSize / 1_000_000).toFixed(2)} vMB`} />
+                    <ProjectionMetric label="Median fee" value={`${formatFee(block.medianFee)} sat/vB`} />
+                    <ProjectionMetric
+                      label="Fee range"
+                      value={`${formatFee(minimumFee)}–${formatFee(maximumFee)}`}
+                    />
+                  </div>
+                  <p className="mt-3 border-t pt-2 text-[9px] text-muted-foreground">
+                    {satsToBtc(block.totalFees)} BTC in fees
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </section>
+  )
+}
+
+function ProjectionMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[9px] text-muted-foreground">{label}</p>
+      <p className="mt-0.5 text-[11px] font-medium">{value}</p>
+    </div>
   )
 }

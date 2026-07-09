@@ -1,0 +1,8 @@
+FEATURES TO ADD
+
+- Full fee estimates: next block, 30-minute, 1-hour, economy, and minimum relay fee.
+- Projected mempool blocks: estimated transaction count, size, median fee, and fee range for each upcoming block.
+- Address UTXOs: every unspent output, value, confirmations, and transaction pagination.
+- Block fee distribution: median/average fee rate, fee range, total inputs/outputs, and total transferred value.
+- Network status: hashrate, mining difficulty, expected adjustment, and estimated time until retarget.
+- Transaction internals: version, locktime, weight, script type, sequence, witness size, and OP_RETURN data.

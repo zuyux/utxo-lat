@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Copy, ExternalLink, TrendingUp, TrendingDown, Wallet } from "lucide-react"
+import { ArrowLeft, Copy, ExternalLink, TrendingUp, TrendingDown, Wallet, Coins, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
 import { apiFetch, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
@@ -26,9 +26,22 @@ interface AddressDetail {
   totalReceived: string
   totalSent: string
   transactionCount: number
-  firstSeen: string
-  lastSeen: string
   transactions: AddressTransaction[]
+  utxos: AddressUtxo[]
+  utxosAvailable: boolean
+  tipHeight: number
+}
+
+interface AddressUtxo {
+  txid: string
+  vout: number
+  value: number
+  status: {
+    confirmed: boolean
+    block_height?: number
+    block_hash?: string
+    block_time?: number
+  }
 }
 
 interface AddressStats {
@@ -39,38 +52,58 @@ interface AddressStats {
 
 const fetchAddressDetail = async (address: string): Promise<AddressDetail> => {
   const stats = await apiFetch<AddressStats>(`/address/${encodeURIComponent(address)}`)
-  const [txResult, tipResult] = await Promise.allSettled([
+  const [txResult, tipResult, utxoResult] = await Promise.allSettled([
     apiFetch<MempoolTransaction[]>(`/address/${encodeURIComponent(address)}/txs`),
     apiFetch<number>("/blocks/tip/height"),
+    apiFetch<AddressUtxo[]>(`/address/${encodeURIComponent(address)}/utxo`),
   ])
   const txs = txResult.status === "fulfilled" ? txResult.value : []
   const tip = tipResult.status === "fulfilled" ? tipResult.value : 0
+  const utxos = utxoResult.status === "fulfilled" ? utxoResult.value : []
   const received = stats.chain_stats.funded_txo_sum + stats.mempool_stats.funded_txo_sum
   const sent = stats.chain_stats.spent_txo_sum + stats.mempool_stats.spent_txo_sum
-  const transactions = txs.map((tx) => {
-    const incoming = tx.vout.filter((output) => output.scriptpubkey_address === address).reduce((sum, output) => sum + output.value, 0)
-    const outgoing = tx.vin.filter((input) => input.prevout?.scriptpubkey_address === address).reduce((sum, input) => sum + (input.prevout?.value ?? 0), 0)
-    const net = incoming - outgoing
-    return {
-      txid: tx.txid,
-      type: net >= 0 ? "received" as const : "sent" as const,
-      amount: satsToBtc(Math.abs(net)),
-      confirmations: tx.status.confirmed && tx.status.block_height && tip > 0 ? tip - tx.status.block_height + 1 : 0,
-      timestamp: tx.status.block_time ? new Date(tx.status.block_time * 1000).toISOString() : new Date().toISOString(),
-      blockHeight: tx.status.block_height ?? 0,
-    }
-  })
-  const confirmedDates = transactions.filter((tx) => tx.blockHeight > 0).map((tx) => tx.timestamp)
+  const transactions = txs.map((tx) => mapAddressTransaction(tx, address, tip))
   return {
     address: stats.address,
     balance: satsToBtc(received - sent),
     totalReceived: satsToBtc(received),
     totalSent: satsToBtc(sent),
     transactionCount: stats.chain_stats.tx_count + stats.mempool_stats.tx_count,
-    firstSeen: confirmedDates.at(-1) || new Date().toISOString(),
-    lastSeen: confirmedDates[0] || new Date().toISOString(),
     transactions,
+    utxos,
+    utxosAvailable: utxoResult.status === "fulfilled",
+    tipHeight: tip,
   }
+}
+
+function mapAddressTransaction(tx: MempoolTransaction, address: string, tip: number): AddressTransaction {
+  const incoming = tx.vout
+    .filter((output) => output.scriptpubkey_address === address)
+    .reduce((sum, output) => sum + output.value, 0)
+  const outgoing = tx.vin
+    .filter((input) => input.prevout?.scriptpubkey_address === address)
+    .reduce((sum, input) => sum + (input.prevout?.value ?? 0), 0)
+  const net = incoming - outgoing
+  return {
+    txid: tx.txid,
+    type: net >= 0 ? "received" : "sent",
+    amount: satsToBtc(Math.abs(net)),
+    confirmations: tx.status.confirmed && tx.status.block_height && tip > 0
+      ? tip - tx.status.block_height + 1
+      : 0,
+    timestamp: tx.status.block_time ? new Date(tx.status.block_time * 1000).toISOString() : "",
+    blockHeight: tx.status.block_height ?? 0,
+  }
+}
+
+function getAddressType(address: string) {
+  const normalized = address.toLowerCase()
+  if (normalized.startsWith("1")) return "P2PKH (Legacy)"
+  if (normalized.startsWith("3")) return "P2SH (Script)"
+  if (normalized.startsWith("bc1p")) return "P2TR (Taproot)"
+  if (normalized.startsWith("bc1q") && normalized.length <= 42) return "P2WPKH (Native SegWit)"
+  if (normalized.startsWith("bc1q")) return "P2WSH (Native SegWit)"
+  return "Unknown"
 }
 
 export default function AddressPage() {
@@ -79,6 +112,9 @@ export default function AddressPage() {
   const address = params.address as string
   const [addressDetail, setAddressDetail] = useState<AddressDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMoreTransactions, setHasMoreTransactions] = useState(false)
+  const [visibleUtxos, setVisibleUtxos] = useState(50)
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -86,7 +122,10 @@ export default function AddressPage() {
       setLoading(true)
       setError("")
       try {
-        setAddressDetail(await fetchAddressDetail(address))
+        const detail = await fetchAddressDetail(address)
+        setAddressDetail(detail)
+        setHasMoreTransactions(detail.transactions.filter((tx) => tx.blockHeight > 0).length >= 25)
+        setVisibleUtxos(50)
       } catch (requestError) {
         setAddressDetail(null)
         setError(requestError instanceof Error ? requestError.message : "Unable to load address")
@@ -101,6 +140,34 @@ export default function AddressPage() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
     toast.success("Copied to clipboard")
+  }
+
+  const loadMoreTransactions = async () => {
+    if (!addressDetail || loadingMore || !hasMoreTransactions) return
+    const lastConfirmed = [...addressDetail.transactions].reverse().find((tx) => tx.blockHeight > 0)
+    if (!lastConfirmed) {
+      setHasMoreTransactions(false)
+      return
+    }
+    setLoadingMore(true)
+    try {
+      const page = await apiFetch<MempoolTransaction[]>(
+        `/address/${encodeURIComponent(address)}/txs/chain/${lastConfirmed.txid}`,
+      )
+      const mapped = page.map((tx) => mapAddressTransaction(tx, address, addressDetail.tipHeight))
+      setAddressDetail((current) => current && ({
+        ...current,
+        transactions: [
+          ...current.transactions,
+          ...mapped.filter((tx) => !current.transactions.some((existing) => existing.txid === tx.txid)),
+        ],
+      }))
+      setHasMoreTransactions(page.length === 25)
+    } catch (requestError) {
+      toast.error(requestError instanceof Error ? requestError.message : "Unable to load more transactions")
+    } finally {
+      setLoadingMore(false)
+    }
   }
 
   if (loading) {
@@ -146,6 +213,10 @@ export default function AddressPage() {
       </div>
     )
   }
+
+  const confirmedTransactions = addressDetail.transactions.filter((tx) => tx.blockHeight > 0)
+  const utxoTotal = addressDetail.utxos.reduce((sum, utxo) => sum + utxo.value, 0)
+  const shownUtxos = addressDetail.utxos.slice(0, visibleUtxos)
 
   return (
     <div className="min-h-screen bg-background">
@@ -218,6 +289,7 @@ export default function AddressPage() {
         <Tabs defaultValue="transactions" className="space-y-4">
           <TabsList>
             <TabsTrigger value="transactions">Transactions</TabsTrigger>
+            <TabsTrigger value="utxos">UTXOs ({addressDetail.utxos.length.toLocaleString()})</TabsTrigger>
             <TabsTrigger value="info">Address Info</TabsTrigger>
           </TabsList>
 
@@ -278,7 +350,96 @@ export default function AddressPage() {
                       </div>
                     </div>
                   ))}
+                  {hasMoreTransactions && (
+                    <div className="pt-2 text-center">
+                      <Button variant="outline" onClick={loadMoreTransactions} disabled={loadingMore}>
+                        {loadingMore && <Loader2 className="mr-2 size-4 animate-spin" />}
+                        Load 25 older transactions
+                      </Button>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Showing {addressDetail.transactions.length.toLocaleString()} of{" "}
+                        {addressDetail.transactionCount.toLocaleString()}
+                      </p>
+                    </div>
+                  )}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="utxos">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Coins className="size-5" />
+                  Unspent Transaction Outputs
+                </CardTitle>
+                <CardDescription>
+                  {addressDetail.utxos.length.toLocaleString()} spendable output{addressDetail.utxos.length === 1 ? "" : "s"} ·{" "}
+                  {satsToBtc(utxoTotal)} BTC total
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!addressDetail.utxosAvailable ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    The UTXO index is temporarily unavailable. Please try again shortly.
+                  </p>
+                ) : addressDetail.utxos.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    This address has no unspent outputs.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {shownUtxos.map((utxo) => {
+                      const confirmations =
+                        utxo.status.confirmed && utxo.status.block_height && addressDetail.tipHeight > 0
+                          ? addressDetail.tipHeight - utxo.status.block_height + 1
+                          : 0
+                      return (
+                        <div key={`${utxo.txid}:${utxo.vout}`} className="rounded-lg border p-4">
+                          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                            <div className="min-w-0">
+                              <Button
+                                variant="link"
+                                className="h-auto max-w-full justify-start p-0 text-left font-mono text-xs"
+                                onClick={() => router.push(`/tx/${utxo.txid}`)}
+                              >
+                                <span className="break-all">{utxo.txid}:{utxo.vout}</span>
+                                <ExternalLink className="ml-1.5 size-3 shrink-0" />
+                              </Button>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {utxo.status.block_height
+                                  ? `Block #${utxo.status.block_height.toLocaleString()}`
+                                  : "Unconfirmed output"}
+                              </p>
+                            </div>
+                            <div className="shrink-0 text-left sm:text-right">
+                              <p className="font-medium">{satsToBtc(utxo.value)} BTC</p>
+                              <Badge variant={confirmations > 0 ? "default" : "secondary"} className="mt-1 text-xs">
+                                {confirmations > 0
+                                  ? `${confirmations.toLocaleString()} confirmation${confirmations === 1 ? "" : "s"}`
+                                  : utxo.status.confirmed ? "Confirmed" : "Unconfirmed"}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {visibleUtxos < addressDetail.utxos.length && (
+                      <div className="pt-2 text-center">
+                        <Button
+                          variant="outline"
+                          onClick={() => setVisibleUtxos((count) => Math.min(count + 50, addressDetail.utxos.length))}
+                        >
+                          Show 50 more UTXOs
+                        </Button>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Showing {shownUtxos.length.toLocaleString()} of {addressDetail.utxos.length.toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -298,23 +459,23 @@ export default function AddressPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">Address Type</label>
                     <div className="text-sm">
-                      {addressDetail.address.startsWith("1")
-                        ? "P2PKH (Legacy)"
-                        : addressDetail.address.startsWith("3")
-                          ? "P2SH (Script)"
-                          : "P2WPKH (Bech32)"}
+                      {getAddressType(addressDetail.address)}
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">Oldest confirmed shown</label>
                     <div className="text-sm">
-                      {formatDistanceToNow(new Date(addressDetail.firstSeen), { addSuffix: true })}
+                      {confirmedTransactions.length > 0
+                        ? formatDistanceToNow(new Date(confirmedTransactions.at(-1)!.timestamp), { addSuffix: true })
+                        : "No confirmed transactions shown"}
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">Latest confirmed shown</label>
                     <div className="text-sm">
-                      {formatDistanceToNow(new Date(addressDetail.lastSeen), { addSuffix: true })}
+                      {confirmedTransactions.length > 0
+                        ? formatDistanceToNow(new Date(confirmedTransactions[0].timestamp), { addSuffix: true })
+                        : "No confirmed transactions shown"}
                     </div>
                   </div>
                 </div>
