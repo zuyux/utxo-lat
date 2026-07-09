@@ -55,6 +55,7 @@ export interface MempoolTransaction {
       value: number
     }
     sequence: number
+    witness?: string[]
   }>
   vout: Array<{
     scriptpubkey: string

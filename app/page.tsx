@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { Github } from "lucide-react"
 
 import { BlockList } from "@/components/block-list"
+import { CurrencyConverter } from "@/components/currency-converter"
 import { MempoolCanvas } from "@/components/mempool-canvas"
+import { NetworkStatus } from "@/components/network-status"
 import { SearchBar } from "@/components/search-bar"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { apiFetch, type BlockApi } from "@/lib/mempool"
 
@@ -48,16 +48,7 @@ export default function BitcoinExplorer() {
           </Link>
 
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="size-9" asChild>
-              <a
-                href="https://github.com/zuyux/utxo-watch"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="View source on GitHub"
-              >
-                <Github className="size-4" />
-              </a>
-            </Button>
+            <CurrencyConverter />
             <ThemeToggle />
           </div>
         </div>
@@ -91,6 +82,7 @@ export default function BitcoinExplorer() {
           <BlockList blocks={blocks} />
         </section>
 
+        <NetworkStatus />
         <MempoolCanvas />
       </main>
     </div>
