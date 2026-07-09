@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Copy, ExternalLink, ChevronLeft, ChevronRight, Blocks, Clock, Users, HardDrive } from "lucide-react"
+import { ArrowLeft, Copy, ExternalLink, ChevronLeft, ChevronRight, Blocks, Clock, Users, HardDrive, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
 import { apiFetch, apiFetchText, type BlockApi, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
@@ -14,10 +14,15 @@ import { apiFetch, apiFetchText, type BlockApi, type MempoolTransaction, satsToB
 interface BlockTransaction {
   txid: string
   fee: string
+  feeRate: string
   size: number
+  vsize: number
+  weight: number
   inputCount: number
   outputCount: number
-  amount: string
+  totalInput: string | null
+  totalOutput: string
+  isCoinbase: boolean
 }
 
 interface BlockDetail {
@@ -38,6 +43,26 @@ interface BlockDetail {
   miner: string
   confirmations: number
   transactions: BlockTransaction[]
+}
+
+const mapTransaction = (tx: MempoolTransaction): BlockTransaction => {
+  const isCoinbase = tx.vin.some((input) => input.is_coinbase)
+  const vsize = tx.weight / 4
+  return {
+    txid: tx.txid,
+    fee: satsToBtc(tx.fee),
+    feeRate: isCoinbase ? "—" : (tx.fee / vsize).toFixed(2),
+    size: tx.size,
+    vsize,
+    weight: tx.weight,
+    inputCount: tx.vin.length,
+    outputCount: tx.vout.length,
+    totalInput: isCoinbase
+      ? null
+      : satsToBtc(tx.vin.reduce((sum, input) => sum + (input.prevout?.value ?? 0), 0)),
+    totalOutput: satsToBtc(tx.vout.reduce((sum, output) => sum + output.value, 0)),
+    isCoinbase,
+  }
 }
 
 const fetchBlockDetail = async (identifier: string): Promise<BlockDetail> => {
@@ -69,14 +94,7 @@ const fetchBlockDetail = async (identifier: string): Promise<BlockDetail> => {
     blockReward: satsToBtc(Math.max(0, reward - totalFees)),
     miner: block.extras?.pool?.name || "Unknown pool",
     confirmations: Math.max(0, tip - block.height + 1),
-    transactions: transactions.map((tx) => ({
-      txid: tx.txid,
-      fee: satsToBtc(tx.fee),
-      size: tx.size,
-      inputCount: tx.vin.length,
-      outputCount: tx.vout.length,
-      amount: satsToBtc(tx.vout.reduce((sum, output) => sum + output.value, 0)),
-    })),
+    transactions: transactions.map(mapTransaction),
   }
 }
 
@@ -86,6 +104,7 @@ export default function BlockPage() {
   const identifier = params.identifier as string
   const [block, setBlock] = useState<BlockDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -112,6 +131,29 @@ export default function BlockPage() {
 
   const navigateToBlock = (height: number) => {
     router.push(`/block/${height}`)
+  }
+
+  const loadMoreTransactions = async () => {
+    if (!block || loadingMore || block.transactions.length >= block.transactionCount) return
+    setLoadingMore(true)
+    try {
+      const transactions = await apiFetch<MempoolTransaction[]>(
+        `/block/${block.hash}/txs/${block.transactions.length}`,
+      )
+      setBlock((current) => current && ({
+        ...current,
+        transactions: [
+          ...current.transactions,
+          ...transactions.map(mapTransaction).filter(
+            (transaction) => !current.transactions.some(({ txid }) => txid === transaction.txid),
+          ),
+        ],
+      }))
+    } catch (requestError) {
+      toast.error(requestError instanceof Error ? requestError.message : "Unable to load more transactions")
+    } finally {
+      setLoadingMore(false)
+    }
   }
 
   if (loading) {
@@ -330,40 +372,64 @@ export default function BlockPage() {
               <CardHeader>
                 <CardTitle>Block Transactions</CardTitle>
                 <CardDescription>
-                  Showing {Math.min(block.transactions.length, 50)} of {block.transactionCount.toLocaleString()}{" "}
-                  transactions
+                  Showing {block.transactions.length.toLocaleString()} of {block.transactionCount.toLocaleString()} transactions
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {block.transactions.map((tx, index) => (
                     <div
                       key={tx.txid}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                      onClick={() => router.push(`/tx/${tx.txid}`)}
+                      className="rounded-lg border p-4 transition-colors hover:bg-muted/30"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 font-bold text-xs">#{index + 1}</span>
+                      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary">
+                            <span className="text-xs font-bold">#{index + 1}</span>
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <code className="break-all text-sm font-medium">{tx.txid}</code>
+                              {tx.isCoinbase && <Badge variant="secondary">Coinbase</Badge>}
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {tx.inputCount.toLocaleString()} input{tx.inputCount === 1 ? "" : "s"} ·{" "}
+                              {tx.outputCount.toLocaleString()} output{tx.outputCount === 1 ? "" : "s"}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <div className="font-mono text-sm font-medium hover:text-primary">
-                            {tx.txid.substring(0, 16)}...
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {tx.inputCount} inputs, {tx.outputCount} outputs • {tx.size} bytes
-                          </div>
+                        <div className="flex shrink-0 gap-1">
+                          <Button variant="ghost" size="icon" className="size-8" onClick={() => copyToClipboard(tx.txid)} aria-label="Copy transaction ID">
+                            <Copy className="size-3.5" />
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => router.push(`/tx/${tx.txid}`)}>
+                            Details <ExternalLink className="ml-1.5 size-3.5" />
+                          </Button>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-medium">{tx.amount} BTC</div>
-                        <div className="text-xs text-muted-foreground">Fee: {tx.fee} BTC</div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 border-t pt-4 text-sm md:grid-cols-3 lg:grid-cols-6">
+                        <TransactionMetric label="Total input" value={tx.totalInput ? `${tx.totalInput} BTC` : "New coins"} />
+                        <TransactionMetric label="Total output" value={`${tx.totalOutput} BTC`} />
+                        <TransactionMetric label="Fee" value={tx.isCoinbase ? "No fee" : `${tx.fee} BTC`} />
+                        <TransactionMetric label="Fee rate" value={tx.isCoinbase ? "—" : `${tx.feeRate} sat/vB`} />
+                        <TransactionMetric label="Size" value={`${tx.size.toLocaleString()} bytes`} />
+                        <TransactionMetric
+                          label="Virtual size"
+                          value={`${tx.vsize.toLocaleString(undefined, { maximumFractionDigits: 2 })} vB`}
+                        />
                       </div>
                     </div>
                   ))}
-                  {block.transactionCount > 50 && (
-                    <div className="text-center py-4 text-muted-foreground">
-                      ... and {(block.transactionCount - 50).toLocaleString()} more transactions
+                  {block.transactions.length < block.transactionCount && (
+                    <div className="pt-2 text-center">
+                      <Button variant="outline" onClick={loadMoreTransactions} disabled={loadingMore}>
+                        {loadingMore && <Loader2 className="mr-2 size-4 animate-spin" />}
+                        Load 25 more
+                      </Button>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {(block.transactionCount - block.transactions.length).toLocaleString()} remaining
+                      </p>
                     </div>
                   )}
                 </div>
@@ -419,6 +485,15 @@ export default function BlockPage() {
           </TabsContent>
         </Tabs>
       </div>
+    </div>
+  )
+}
+
+function TransactionMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-0.5 break-words font-medium">{value}</p>
     </div>
   )
 }
