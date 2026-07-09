@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Copy, ExternalLink, ChevronLeft, ChevronRight, Blocks, Clock, Users, HardDrive } from "lucide-react"
 import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
+import { apiFetch, apiFetchText, type BlockApi, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
 
 interface BlockTransaction {
   txid: string
@@ -39,46 +40,43 @@ interface BlockDetail {
   transactions: BlockTransaction[]
 }
 
-// Mock data generator for block details
-const generateBlockDetail = (identifier: string): BlockDetail => {
-  const isHeight = /^\d+$/.test(identifier)
-  const height = isHeight ? Number.parseInt(identifier) : 800000 + Math.floor(Math.random() * 1000)
-  const transactionCount = Math.floor(Math.random() * 3000) + 1000
-
-  const transactions: BlockTransaction[] = Array.from({ length: Math.min(transactionCount, 50) }, () => ({
-    txid: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
-    fee: (Math.random() * 0.01).toFixed(8),
-    size: Math.floor(Math.random() * 500) + 200,
-    inputCount: Math.floor(Math.random() * 5) + 1,
-    outputCount: Math.floor(Math.random() * 5) + 1,
-    amount: (Math.random() * 10 + 0.1).toFixed(8),
-  }))
-
-  const totalFees = transactions.reduce((sum, tx) => sum + Number.parseFloat(tx.fee), 0).toFixed(8)
-
+const fetchBlockDetail = async (identifier: string): Promise<BlockDetail> => {
+  const hash = /^\d+$/.test(identifier)
+    ? await apiFetchText(`/block-height/${identifier}`)
+    : identifier
+  const [block, status, tip, transactions] = await Promise.all([
+    apiFetch<BlockApi>(`/v1/block/${hash}`),
+    apiFetch<{ next_best?: string }>(`/block/${hash}/status`),
+    apiFetch<number>("/blocks/tip/height"),
+    apiFetch<MempoolTransaction[]>(`/block/${hash}/txs/0`),
+  ])
+  const totalFees = block.extras?.totalFees ?? 0
+  const reward = block.extras?.reward ?? 0
   return {
-    height,
-    hash: isHeight
-      ? Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
-      : identifier,
-    previousBlockHash: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
-    nextBlockHash:
-      height < 850000
-        ? Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
-        : null,
-    merkleRoot: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
-    timestamp: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
-    difficulty: (Math.random() * 10 + 50).toFixed(2) + "T",
-    nonce: Math.floor(Math.random() * 4294967295),
-    version: Math.floor(Math.random() * 4) + 1,
-    size: Math.floor(Math.random() * 2000000) + 500000,
-    weight: Math.floor(Math.random() * 4000000) + 1000000,
-    transactionCount,
-    totalFees,
-    blockReward: "6.25",
-    miner: ["Antpool", "F2Pool", "Foundry USA", "ViaBTC", "Binance Pool"][Math.floor(Math.random() * 5)],
-    confirmations: Math.floor(Math.random() * 100) + 1,
-    transactions,
+    height: block.height,
+    hash: block.id,
+    previousBlockHash: block.previousblockhash || "",
+    nextBlockHash: status.next_best || null,
+    merkleRoot: block.merkle_root,
+    timestamp: new Date(block.timestamp * 1000).toISOString(),
+    difficulty: block.difficulty.toLocaleString(),
+    nonce: block.nonce,
+    version: block.version,
+    size: block.size,
+    weight: block.weight,
+    transactionCount: block.tx_count,
+    totalFees: satsToBtc(totalFees),
+    blockReward: satsToBtc(Math.max(0, reward - totalFees)),
+    miner: block.extras?.pool?.name || "Unknown pool",
+    confirmations: Math.max(0, tip - block.height + 1),
+    transactions: transactions.map((tx) => ({
+      txid: tx.txid,
+      fee: satsToBtc(tx.fee),
+      size: tx.size,
+      inputCount: tx.vin.length,
+      outputCount: tx.vout.length,
+      amount: satsToBtc(tx.vout.reduce((sum, output) => sum + output.value, 0)),
+    })),
   }
 }
 
@@ -88,14 +86,20 @@ export default function BlockPage() {
   const identifier = params.identifier as string
   const [block, setBlock] = useState<BlockDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   useEffect(() => {
-    // Simulate API call
     const fetchBlock = async () => {
       setLoading(true)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setBlock(generateBlockDetail(identifier))
-      setLoading(false)
+      setError("")
+      try {
+        setBlock(await fetchBlockDetail(identifier))
+      } catch (requestError) {
+        setBlock(null)
+        setError(requestError instanceof Error ? requestError.message : "Unable to load block")
+      } finally {
+        setLoading(false)
+      }
     }
 
     fetchBlock()
@@ -147,7 +151,7 @@ export default function BlockPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Block Not Found</h1>
-            <p className="text-muted-foreground">The block you searched for does not exist.</p>
+            <p className="text-muted-foreground">{error || "The block you searched for does not exist."}</p>
           </div>
         </div>
       </div>

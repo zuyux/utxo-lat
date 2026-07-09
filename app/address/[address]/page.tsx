@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Copy, ExternalLink, TrendingUp, TrendingDown, Wallet } from "lucide-react"
 import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
+import { apiFetch, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
 
 interface AddressTransaction {
   txid: string
@@ -30,48 +31,44 @@ interface AddressDetail {
   transactions: AddressTransaction[]
 }
 
-// Mock data generator for address details
-const generateAddressDetail = (address: string): AddressDetail => {
-  const transactionCount = Math.floor(Math.random() * 50) + 10
-  const transactions: AddressTransaction[] = []
+interface AddressStats {
+  address: string
+  chain_stats: { tx_count: number; funded_txo_sum: number; spent_txo_sum: number }
+  mempool_stats: { tx_count: number; funded_txo_sum: number; spent_txo_sum: number }
+}
 
-  let balance = 0
-  let totalReceived = 0
-  let totalSent = 0
-
-  for (let i = 0; i < transactionCount; i++) {
-    const type = Math.random() > 0.5 ? "received" : "sent"
-    const amount = Number.parseFloat((Math.random() * 2 + 0.01).toFixed(8))
-
-    if (type === "received") {
-      balance += amount
-      totalReceived += amount
-    } else {
-      balance -= amount
-      totalSent += amount
+const fetchAddressDetail = async (address: string): Promise<AddressDetail> => {
+  const stats = await apiFetch<AddressStats>(`/address/${encodeURIComponent(address)}`)
+  const [txResult, tipResult] = await Promise.allSettled([
+    apiFetch<MempoolTransaction[]>(`/address/${encodeURIComponent(address)}/txs`),
+    apiFetch<number>("/blocks/tip/height"),
+  ])
+  const txs = txResult.status === "fulfilled" ? txResult.value : []
+  const tip = tipResult.status === "fulfilled" ? tipResult.value : 0
+  const received = stats.chain_stats.funded_txo_sum + stats.mempool_stats.funded_txo_sum
+  const sent = stats.chain_stats.spent_txo_sum + stats.mempool_stats.spent_txo_sum
+  const transactions = txs.map((tx) => {
+    const incoming = tx.vout.filter((output) => output.scriptpubkey_address === address).reduce((sum, output) => sum + output.value, 0)
+    const outgoing = tx.vin.filter((input) => input.prevout?.scriptpubkey_address === address).reduce((sum, input) => sum + (input.prevout?.value ?? 0), 0)
+    const net = incoming - outgoing
+    return {
+      txid: tx.txid,
+      type: net >= 0 ? "received" as const : "sent" as const,
+      amount: satsToBtc(Math.abs(net)),
+      confirmations: tx.status.confirmed && tx.status.block_height && tip > 0 ? tip - tx.status.block_height + 1 : 0,
+      timestamp: tx.status.block_time ? new Date(tx.status.block_time * 1000).toISOString() : new Date().toISOString(),
+      blockHeight: tx.status.block_height ?? 0,
     }
-
-    transactions.push({
-      txid: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
-      type,
-      amount: amount.toFixed(8),
-      confirmations: Math.floor(Math.random() * 100),
-      timestamp: new Date(Date.now() - Math.random() * 86400000 * 30).toISOString(),
-      blockHeight: 800000 + Math.floor(Math.random() * 1000),
-    })
-  }
-
-  // Sort transactions by timestamp (newest first)
-  transactions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-
+  })
+  const confirmedDates = transactions.filter((tx) => tx.blockHeight > 0).map((tx) => tx.timestamp)
   return {
-    address,
-    balance: Math.max(balance, 0).toFixed(8),
-    totalReceived: totalReceived.toFixed(8),
-    totalSent: totalSent.toFixed(8),
-    transactionCount,
-    firstSeen: transactions[transactions.length - 1]?.timestamp || new Date().toISOString(),
-    lastSeen: transactions[0]?.timestamp || new Date().toISOString(),
+    address: stats.address,
+    balance: satsToBtc(received - sent),
+    totalReceived: satsToBtc(received),
+    totalSent: satsToBtc(sent),
+    transactionCount: stats.chain_stats.tx_count + stats.mempool_stats.tx_count,
+    firstSeen: confirmedDates.at(-1) || new Date().toISOString(),
+    lastSeen: confirmedDates[0] || new Date().toISOString(),
     transactions,
   }
 }
@@ -82,14 +79,20 @@ export default function AddressPage() {
   const address = params.address as string
   const [addressDetail, setAddressDetail] = useState<AddressDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   useEffect(() => {
-    // Simulate API call
     const fetchAddress = async () => {
       setLoading(true)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setAddressDetail(generateAddressDetail(address))
-      setLoading(false)
+      setError("")
+      try {
+        setAddressDetail(await fetchAddressDetail(address))
+      } catch (requestError) {
+        setAddressDetail(null)
+        setError(requestError instanceof Error ? requestError.message : "Unable to load address")
+      } finally {
+        setLoading(false)
+      }
     }
 
     fetchAddress()
@@ -137,7 +140,7 @@ export default function AddressPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Address Not Found</h1>
-            <p className="text-muted-foreground">The address you searched for does not exist.</p>
+            <p className="text-muted-foreground">{error || "The address you searched for does not exist."}</p>
           </div>
         </div>
       </div>
@@ -174,9 +177,7 @@ export default function AddressPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{addressDetail.balance} BTC</div>
-              <p className="text-xs text-muted-foreground">
-                ${(Number.parseFloat(addressDetail.balance) * 45000).toLocaleString()}
-              </p>
+              <p className="text-xs text-muted-foreground">Confirmed and mempool totals</p>
             </CardContent>
           </Card>
 
@@ -224,9 +225,14 @@ export default function AddressPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Transaction History</CardTitle>
-                <CardDescription>All transactions for this address</CardDescription>
+                <CardDescription>Newest transactions returned by the live indexer</CardDescription>
               </CardHeader>
               <CardContent>
+                {addressDetail.transactions.length === 0 && (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Transaction history is temporarily unavailable. Address totals above are current.
+                  </p>
+                )}
                 <div className="space-y-4">
                   {addressDetail.transactions.map((tx) => (
                     <div
@@ -255,8 +261,9 @@ export default function AddressPage() {
                             <ExternalLink className="w-3 h-3 ml-1" />
                           </Button>
                           <div className="text-xs text-muted-foreground">
-                            Block #{tx.blockHeight.toLocaleString()} •{" "}
-                            {formatDistanceToNow(new Date(tx.timestamp), { addSuffix: true })}
+                            {tx.blockHeight > 0
+                              ? `Block #${tx.blockHeight.toLocaleString()} • ${formatDistanceToNow(new Date(tx.timestamp), { addSuffix: true })}`
+                              : "Unconfirmed"}
                           </div>
                         </div>
                       </div>
@@ -299,13 +306,13 @@ export default function AddressPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">First Seen</label>
+                    <label className="text-sm font-medium text-muted-foreground">Oldest confirmed shown</label>
                     <div className="text-sm">
                       {formatDistanceToNow(new Date(addressDetail.firstSeen), { addSuffix: true })}
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Last Activity</label>
+                    <label className="text-sm font-medium text-muted-foreground">Latest confirmed shown</label>
                     <div className="text-sm">
                       {formatDistanceToNow(new Date(addressDetail.lastSeen), { addSuffix: true })}
                     </div>

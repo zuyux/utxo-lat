@@ -8,19 +8,25 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search } from "lucide-react"
 import { toast } from "sonner"
+import { apiFetch } from "@/lib/mempool"
 
 export function SearchBar() {
   const [query, setQuery] = useState("")
   const router = useRouter()
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!query.trim()) return
 
     const trimmedQuery = query.trim()
 
     if (trimmedQuery.length === 64 && /^[a-fA-F0-9]+$/.test(trimmedQuery)) {
-      router.push(`/tx/${trimmedQuery}`)
+      try {
+        await apiFetch(`/block/${trimmedQuery}`)
+        router.push(`/block/${trimmedQuery}`)
+      } catch {
+        router.push(`/tx/${trimmedQuery}`)
+      }
     } else if (/^\d+$/.test(trimmedQuery)) {
       router.push(`/block/${trimmedQuery}`)
     } else if (

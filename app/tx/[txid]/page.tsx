@@ -1,303 +1,183 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Copy, ExternalLink, ArrowUpRight, ArrowDownLeft } from "lucide-react"
+import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Copy } from "lucide-react"
 import { toast } from "sonner"
-import { formatDistanceToNow } from "date-fns"
 
-interface TransactionDetail {
-  txid: string
-  blockHeight: number
-  blockHash: string
-  confirmations: number
-  timestamp: string
-  fee: string
-  size: number
-  inputs: Array<{
-    address: string
-    amount: string
-    txid: string
-    vout: number
-  }>
-  outputs: Array<{
-    address: string
-    amount: string
-    spent: boolean
-  }>
-  totalInput: string
-  totalOutput: string
-}
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { apiFetch, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
 
-// Mock data generator for transaction details
-const generateTransactionDetail = (txid: string): TransactionDetail => {
-  const confirmations = Math.floor(Math.random() * 100)
-  const inputCount = Math.floor(Math.random() * 5) + 1
-  const outputCount = Math.floor(Math.random() * 5) + 1
-
-  const inputs = Array.from({ length: inputCount }, (_, i) => ({
-    address: `1${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`,
-    amount: (Math.random() * 5 + 0.1).toFixed(8),
-    txid: Math.random().toString(36).substring(2, 15),
-    vout: i,
-  }))
-
-  const outputs = Array.from({ length: outputCount }, () => ({
-    address: `1${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`,
-    amount: (Math.random() * 3 + 0.05).toFixed(8),
-    spent: Math.random() > 0.5,
-  }))
-
-  const totalInput = inputs.reduce((sum, input) => sum + Number.parseFloat(input.amount), 0).toFixed(8)
-  const totalOutput = outputs.reduce((sum, output) => sum + Number.parseFloat(output.amount), 0).toFixed(8)
-  const fee = (Number.parseFloat(totalInput) - Number.parseFloat(totalOutput)).toFixed(8)
-
-  return {
-    txid,
-    blockHeight: 800000 + Math.floor(Math.random() * 1000),
-    blockHash: Math.random().toString(36).substring(2, 15),
-    confirmations,
-    timestamp: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
-    fee,
-    size: Math.floor(Math.random() * 500) + 200,
-    inputs,
-    outputs,
-    totalInput,
-    totalOutput,
-  }
+interface Outspend {
+  spent: boolean
+  txid?: string
+  vin?: number
 }
 
 export default function TransactionPage() {
-  const params = useParams()
+  const { txid } = useParams<{ txid: string }>()
   const router = useRouter()
-  const txid = params.txid as string
-  const [transaction, setTransaction] = useState<TransactionDetail | null>(null)
+  const [transaction, setTransaction] = useState<MempoolTransaction | null>(null)
+  const [outspends, setOutspends] = useState<Outspend[]>([])
+  const [tipHeight, setTipHeight] = useState<number | null>(null)
+  const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Simulate API call
-    const fetchTransaction = async () => {
-      setLoading(true)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setTransaction(generateTransactionDetail(txid))
-      setLoading(false)
-    }
+    const controller = new AbortController()
+    setLoading(true)
+    setError("")
 
-    fetchTransaction()
+    Promise.all([
+      apiFetch<MempoolTransaction>(`/tx/${txid}`, controller.signal),
+      apiFetch<Outspend[]>(`/tx/${txid}/outspends`, controller.signal),
+      apiFetch<number>("/blocks/tip/height", controller.signal),
+    ])
+      .then(([tx, spends, height]) => {
+        setTransaction(tx)
+        setOutspends(spends)
+        setTipHeight(height)
+      })
+      .catch((requestError) => {
+        if (requestError instanceof DOMException && requestError.name === "AbortError") return
+        setError(requestError instanceof Error ? requestError.message : "Unable to load transaction")
+      })
+      .finally(() => setLoading(false))
+
+    return () => controller.abort()
   }, [txid])
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
+  const totals = useMemo(() => {
+    const input = transaction?.vin.reduce((sum, vin) => sum + (vin.prevout?.value ?? 0), 0) ?? 0
+    const output = transaction?.vout.reduce((sum, vout) => sum + vout.value, 0) ?? 0
+    return { input, output }
+  }, [transaction])
+
+  const copy = async (text: string) => {
+    await navigator.clipboard.writeText(text)
     toast.success("Copied to clipboard")
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b">
-          <div className="container mx-auto px-4 py-4">
-            <Button variant="ghost" onClick={() => router.back()}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </div>
-        </header>
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading transaction details...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+  if (loading) return <PageMessage onBack={() => router.back()} message="Loading live transaction data…" />
+  if (error || !transaction) {
+    return <PageMessage onBack={() => router.back()} title="Transaction not found" message={error || "No transaction data was returned."} />
   }
 
-  if (!transaction) {
-    return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b">
-          <div className="container mx-auto px-4 py-4">
-            <Button variant="ghost" onClick={() => router.back()}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </div>
-        </header>
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold mb-4">Transaction Not Found</h1>
-            <p className="text-muted-foreground">The transaction you searched for does not exist.</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const confirmations =
+    transaction.status.confirmed && transaction.status.block_height != null && tipHeight != null
+      ? Math.max(0, tipHeight - transaction.status.block_height + 1)
+      : 0
+  const vsize = transaction.weight / 4
+  const isCoinbase = transaction.vin.some((vin) => vin.is_coinbase)
 
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="container mx-auto px-4 py-4">
-          <Button variant="ghost" onClick={() => router.back()}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
+          <Button variant="ghost" onClick={() => router.back()}><ArrowLeft className="mr-2 size-4" />Back</Button>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-4 py-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Transaction Details</h1>
+          <h1 className="mb-2 text-3xl font-bold">Transaction Details</h1>
           <div className="flex items-center gap-2">
-            <code className="text-sm bg-muted px-2 py-1 rounded">{transaction.txid}</code>
-            <Button variant="ghost" size="sm" onClick={() => copyToClipboard(transaction.txid)}>
-              <Copy className="w-4 h-4" />
-            </Button>
+            <code className="min-w-0 break-all rounded bg-muted px-2 py-1 text-sm">{transaction.txid}</code>
+            <Button variant="ghost" size="sm" onClick={() => copy(transaction.txid)} aria-label="Copy transaction ID"><Copy className="size-4" /></Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <InfoCard title="Status" rows={[
+            ["State", transaction.status.confirmed ? `${confirmations.toLocaleString()} confirmation${confirmations === 1 ? "" : "s"}` : "Unconfirmed"],
+            ["Block", transaction.status.block_height?.toLocaleString() ?? "Not yet mined"],
+            ["Timestamp", transaction.status.block_time ? new Date(transaction.status.block_time * 1000).toLocaleString() : "Pending"],
+          ]} />
+          <InfoCard title="Transaction info" rows={[
+            ["Fee", isCoinbase ? "Coinbase (no fee)" : `${satsToBtc(transaction.fee)} BTC`],
+            ["Size", `${transaction.size.toLocaleString()} bytes`],
+            ["Virtual size", `${vsize.toLocaleString(undefined, { maximumFractionDigits: 2 })} vB`],
+            ["Fee rate", isCoinbase ? "—" : `${(transaction.fee / vsize).toFixed(2)} sat/vB`],
+          ]} />
+          <InfoCard title="Amounts" rows={[
+            ["Total input", isCoinbase ? "Newly issued coins" : `${satsToBtc(totals.input)} BTC`],
+            ["Total output", `${satsToBtc(totals.output)} BTC`],
+          ]} />
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card>
-            <CardHeader>
-              <CardTitle>Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Confirmations</span>
-                  <Badge variant={transaction.confirmations === 0 ? "secondary" : "default"}>
-                    {transaction.confirmations === 0 ? "Unconfirmed" : `${transaction.confirmations} confirmations`}
+            <CardHeader><CardTitle className="flex items-center gap-2"><ArrowDownLeft className="size-4" />Inputs ({transaction.vin.length})</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              {transaction.vin.map((input, index) => (
+                <div key={`${input.txid}-${input.vout}-${index}`} className="rounded-lg border p-4">
+                  {input.is_coinbase ? (
+                    <div className="font-medium">Coinbase (newly generated coins)</div>
+                  ) : (
+                    <>
+                      <Address value={input.prevout?.scriptpubkey_address} fallback={input.prevout?.scriptpubkey_type || "Unknown script"} />
+                      <div className="mt-2 font-medium">{input.prevout ? satsToBtc(input.prevout.value) : "Unknown"} BTC</div>
+                      <Link className="mt-2 block break-all font-mono text-xs text-muted-foreground hover:underline" href={`/tx/${input.txid}`}>
+                        Previous output: {input.txid}:{input.vout}
+                      </Link>
+                    </>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><ArrowUpRight className="size-4" />Outputs ({transaction.vout.length})</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              {transaction.vout.map((output, index) => (
+                <div key={`${output.scriptpubkey}-${index}`} className="rounded-lg border p-4">
+                  <Address value={output.scriptpubkey_address} fallback={output.scriptpubkey_type} />
+                  <div className="mt-2 font-medium">{satsToBtc(output.value)} BTC</div>
+                  <Badge variant={outspends[index]?.spent ? "secondary" : "default"} className="mt-2">
+                    {outspends[index]?.spent ? "Spent" : "Unspent"}
                   </Badge>
+                  {outspends[index]?.txid && (
+                    <Link href={`/tx/${outspends[index].txid}`} className="ml-2 text-xs text-muted-foreground hover:underline">View spending transaction</Link>
+                  )}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Block Height</span>
-                  <span className="font-medium">{transaction.blockHeight.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Timestamp</span>
-                  <span className="font-medium">
-                    {formatDistanceToNow(new Date(transaction.timestamp), { addSuffix: true })}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Transaction Info</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Fee</span>
-                  <span className="font-medium">{transaction.fee} BTC</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Size</span>
-                  <span className="font-medium">{transaction.size} bytes</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Fee Rate</span>
-                  <span className="font-medium">
-                    {((Number.parseFloat(transaction.fee) * 100000000) / transaction.size).toFixed(2)} sat/vB
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Amounts</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Input</span>
-                  <span className="font-medium">{transaction.totalInput} BTC</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Output</span>
-                  <span className="font-medium">{transaction.totalOutput} BTC</span>
-                </div>
-              </div>
+              ))}
             </CardContent>
           </Card>
         </div>
+      </main>
+    </div>
+  )
+}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Inputs */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ArrowDownLeft className="w-4 h-4" />
-                Inputs ({transaction.inputs.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {transaction.inputs.map((input, index) => (
-                  <div key={index} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <Button
-                        variant="link"
-                        className="p-0 h-auto font-mono text-sm"
-                        onClick={() => router.push(`/address/${input.address}`)}
-                      >
-                        {input.address}
-                        <ExternalLink className="w-3 h-3 ml-1" />
-                      </Button>
-                      <span className="font-medium">{input.amount} BTC</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Previous TX: {input.txid}:{input.vout}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+function Address({ value, fallback }: { value?: string; fallback: string }) {
+  return value
+    ? <Link href={`/address/${value}`} className="break-all font-mono text-sm text-primary hover:underline">{value}</Link>
+    : <span className="break-all font-mono text-sm text-muted-foreground">{fallback}</span>
+}
 
-          {/* Outputs */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ArrowUpRight className="w-4 h-4" />
-                Outputs ({transaction.outputs.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {transaction.outputs.map((output, index) => (
-                  <div key={index} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <Button
-                        variant="link"
-                        className="p-0 h-auto font-mono text-sm"
-                        onClick={() => router.push(`/address/${output.address}`)}
-                      >
-                        {output.address}
-                        <ExternalLink className="w-3 h-3 ml-1" />
-                      </Button>
-                      <span className="font-medium">{output.amount} BTC</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={output.spent ? "secondary" : "default"} className="text-xs">
-                        {output.spent ? "Spent" : "Unspent"}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+function InfoCard({ title, rows }: { title: string; rows: Array<[string, string]> }) {
+  return (
+    <Card>
+      <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        {rows.map(([label, value]) => <div key={label} className="flex items-start justify-between gap-4"><span className="text-muted-foreground">{label}</span><span className="text-right font-medium">{value}</span></div>)}
+      </CardContent>
+    </Card>
+  )
+}
+
+function PageMessage({ onBack, title, message }: { onBack: () => void; title?: string; message: string }) {
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b"><div className="container mx-auto px-4 py-4"><Button variant="ghost" onClick={onBack}><ArrowLeft className="mr-2 size-4" />Back</Button></div></header>
+      <main className="container mx-auto px-4 py-20 text-center">
+        {title && <h1 className="mb-3 text-2xl font-bold">{title}</h1>}
+        <p className="text-muted-foreground">{message}</p>
+      </main>
     </div>
   )
 }
