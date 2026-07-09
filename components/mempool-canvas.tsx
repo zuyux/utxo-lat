@@ -1,7 +1,17 @@
 "use client"
 
 import { PointerEvent, useCallback, useEffect, useRef, useState } from "react"
+import { Info } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { apiFetch } from "@/lib/mempool"
 
 const CELL_SIZE = 8
@@ -118,19 +128,21 @@ export function MempoolCanvas() {
     const columns = Math.max(1, Math.floor((width + CELL_GAP) / (CELL_SIZE + CELL_GAP)))
     const rows = Math.floor((CANVAS_HEIGHT + CELL_GAP) / (CELL_SIZE + CELL_GAP))
     const result = makeCells(stats.fee_histogram, columns * rows)
+    const populatedRows = Math.max(1, Math.ceil(result.cells.length / columns))
+    const canvasHeight = populatedRows * (CELL_SIZE + CELL_GAP) - CELL_GAP
     cellsRef.current = result.cells
     dimensionsRef.current = { columns, rows }
     setVbytesPerCell(result.vbytesPerCell)
 
     canvas.width = width * dpr
-    canvas.height = CANVAS_HEIGHT * dpr
+    canvas.height = canvasHeight * dpr
     canvas.style.width = `${width}px`
-    canvas.style.height = `${CANVAS_HEIGHT}px`
+    canvas.style.height = `${canvasHeight}px`
 
     const context = canvas.getContext("2d")
     if (!context) return
     context.scale(dpr, dpr)
-    context.clearRect(0, 0, width, CANVAS_HEIGHT)
+    context.clearRect(0, 0, width, canvasHeight)
 
     result.cells.forEach((cell, index) => {
       const column = index % columns
@@ -283,7 +295,7 @@ export function MempoolCanvas() {
       </div>
 
       <div className="relative overflow-hidden border-y py-3">
-        <p className="pointer-events-none absolute left-2 top-4 z-10 bg-background/90 px-1 text-[9px] text-muted-foreground">
+        <p className="mb-2 px-1 text-[9px] text-muted-foreground">
           white outline = top 1 vMB by fee histogram
         </p>
         <canvas
@@ -318,9 +330,66 @@ export function MempoolCanvas() {
             </span>
           ))}
         </div>
-        <p className="text-[10px] text-muted-foreground">
-          1 cell = {(vbytesPerCell / 1_000).toLocaleString()} kvB · live fee histogram
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] text-muted-foreground">
+            1 cell = {(vbytesPerCell / 1_000).toLocaleString()} kvB · live fee histogram
+          </p>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]">
+                <Info aria-hidden="true" />
+                About this graph
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Understanding the mempool</DialogTitle>
+                <DialogDescription>
+                  What is waiting for confirmation and how this graph represents it.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 text-sm leading-relaxed text-muted-foreground">
+                <div>
+                  <h4 className="font-medium text-foreground">What is the mempool?</h4>
+                  <p className="mt-1">
+                    The mempool is the queue of valid Bitcoin transactions known to a node but
+                    not yet included in a block. Each node has its own view, so totals can differ
+                    slightly between providers.
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-medium text-foreground">What does the graph show?</h4>
+                  <p className="mt-1">
+                    Each cell represents a quantity of transaction virtual size, measured in
+                    virtual bytes (vB). Cells run from higher fee rates on the left to lower fee
+                    rates on the right. Hover a cell to see its fee band and queued size.
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-medium text-foreground">Colors and the white outline</h4>
+                  <p className="mt-1">
+                    Colors compare fee bands with the current confirmation-fee estimates. The
+                    white outline marks the first 1 vMB in fee-histogram order—roughly one
+                    block&apos;s maximum virtual size.
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-medium text-foreground">Important limitation</h4>
+                  <p className="mt-1">
+                    This is a fee-pressure overview, not a guaranteed next-block template.
+                    Miners can select transaction packages differently because of dependencies,
+                    effective package fees, policy, and other constraints. Data refreshes about
+                    every 30 seconds.
+                  </p>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
       <p className="pt-1 text-[9px] text-muted-foreground">
         Histogram order is not a next-block forecast; miners may prioritize transaction packages differently.
