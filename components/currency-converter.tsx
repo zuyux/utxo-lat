@@ -24,10 +24,19 @@ const currencies = [
   { code: "AUD", name: "Australian Dollar", symbol: "A$" },
   { code: "JPY", name: "Japanese Yen", symbol: "¥" },
   { code: "PEN", name: "Peruvian Sol", symbol: "S/" },
+  { code: "ARS", name: "Argentinian Peso", symbol: "$" },
 ] as const
 
 type CurrencyCode = (typeof currencies)[number]["code"]
+type BitcoinUnit = "BTC" | "SAT"
 type PriceResponse = { time: number; source: string } & Record<CurrencyCode, number>
+
+const currencyStorageKey = "current-currency"
+const satsPerBtc = 100_000_000
+
+function isCurrencyCode(value: string | null): value is CurrencyCode {
+  return currencies.some((currency) => currency.code === value)
+}
 
 function formatPrice(value: number, currency: CurrencyCode, maximumFractionDigits = 0) {
   return new Intl.NumberFormat("en-US", {
@@ -37,12 +46,30 @@ function formatPrice(value: number, currency: CurrencyCode, maximumFractionDigit
   }).format(value)
 }
 
+function cryptoAmountToBtc(value: string, unit: BitcoinUnit) {
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return null
+  return unit === "SAT" ? amount / satsPerBtc : amount
+}
+
+function btcToCryptoAmount(value: number, unit: BitcoinUnit) {
+  return unit === "SAT" ? String(Math.round(value * satsPerBtc)) : value.toFixed(8)
+}
+
 export function CurrencyConverter() {
   const [prices, setPrices] = useState<PriceResponse | null>(null)
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>("USD")
-  const [btcAmount, setBtcAmount] = useState("1")
+  const [bitcoinUnit, setBitcoinUnit] = useState<BitcoinUnit>("BTC")
+  const [bitcoinAmount, setBitcoinAmount] = useState("1")
   const [fiatAmount, setFiatAmount] = useState("")
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    const storedCurrency = window.localStorage.getItem(currencyStorageKey)
+    if (isCurrencyCode(storedCurrency)) {
+      setSelectedCurrency(storedCurrency)
+    }
+  }, [])
 
   const loadPrices = useCallback(async () => {
     try {
@@ -67,43 +94,63 @@ export function CurrencyConverter() {
 
   useEffect(() => {
     if (!prices) return
-    if (btcAmount.trim() === "") {
+    if (bitcoinAmount.trim() === "") {
       setFiatAmount("")
       return
     }
-    const amount = Number(btcAmount)
-    setFiatAmount(Number.isFinite(amount) ? (amount * prices[selectedCurrency]).toFixed(2) : "")
-  }, [btcAmount, prices, selectedCurrency])
+    const btcAmount = cryptoAmountToBtc(bitcoinAmount, bitcoinUnit)
+    setFiatAmount(btcAmount !== null ? (btcAmount * prices[selectedCurrency]).toFixed(2) : "")
+  }, [bitcoinAmount, bitcoinUnit, prices, selectedCurrency])
 
-  const handleBtcChange = (value: string) => {
-    setBtcAmount(value)
+  const handleBitcoinChange = (value: string) => {
+    setBitcoinAmount(value)
     if (!prices) return
     if (value.trim() === "") {
       setFiatAmount("")
       return
     }
-    const amount = Number(value)
-    setFiatAmount(Number.isFinite(amount) ? (amount * prices[selectedCurrency]).toFixed(2) : "")
+    const btcAmount = cryptoAmountToBtc(value, bitcoinUnit)
+    setFiatAmount(btcAmount !== null ? (btcAmount * prices[selectedCurrency]).toFixed(2) : "")
   }
 
   const handleFiatChange = (value: string) => {
     setFiatAmount(value)
     if (!prices) return
     if (value.trim() === "") {
-      setBtcAmount("")
+      setBitcoinAmount("")
       return
     }
     const amount = Number(value)
-    setBtcAmount(Number.isFinite(amount) ? (amount / prices[selectedCurrency]).toFixed(8) : "")
+    setBitcoinAmount(Number.isFinite(amount) ? btcToCryptoAmount(amount / prices[selectedCurrency], bitcoinUnit) : "")
   }
 
-  const usdPrice = prices?.USD
+  const handleCurrencyChange = (value: string) => {
+    if (!isCurrencyCode(value)) return
+    setSelectedCurrency(value)
+    window.localStorage.setItem(currencyStorageKey, value)
+  }
+
+  const handleBitcoinUnitToggle = () => {
+    const nextUnit = bitcoinUnit === "BTC" ? "SAT" : "BTC"
+    const btcAmount = bitcoinAmount.trim() === "" ? null : cryptoAmountToBtc(bitcoinAmount, bitcoinUnit)
+    setBitcoinUnit(nextUnit)
+    if (btcAmount !== null) {
+      setBitcoinAmount(btcToCryptoAmount(btcAmount, nextUnit))
+    }
+  }
+
+  const handlePresetBtcAmount = (amount: number) => {
+    setBitcoinUnit("BTC")
+    handleBitcoinChange(String(amount))
+  }
+
+  const selectedPrice = prices?.[selectedCurrency]
 
   return (
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" className="h-9 px-2 font-mono text-xs tabular-nums">
-          {usdPrice ? formatPrice(usdPrice, "USD") : "$—"}
+          {selectedPrice ? formatPrice(selectedPrice, selectedCurrency) : "—"}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
@@ -126,7 +173,7 @@ export function CurrencyConverter() {
 
         <div className="space-y-2">
           <Label htmlFor="converter-currency">Fiat currency</Label>
-          <Select value={selectedCurrency} onValueChange={(value) => setSelectedCurrency(value as CurrencyCode)}>
+          <Select value={selectedCurrency} onValueChange={handleCurrencyChange}>
             <SelectTrigger id="converter-currency">
               <SelectValue />
             </SelectTrigger>
@@ -142,15 +189,24 @@ export function CurrencyConverter() {
 
         <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
           <div className="space-y-2">
-            <Label htmlFor="btc-amount">BTC</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="bitcoin-amount">{bitcoinUnit}</Label>
+              <button
+                type="button"
+                className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                onClick={handleBitcoinUnitToggle}
+              >
+                {bitcoinUnit === "BTC" ? "SAT" : "BTC"}
+              </button>
+            </div>
             <Input
-              id="btc-amount"
+              id="bitcoin-amount"
               type="number"
               min="0"
-              step="any"
-              inputMode="decimal"
-              value={btcAmount}
-              onChange={(event) => handleBtcChange(event.target.value)}
+              step={bitcoinUnit === "SAT" ? "1" : "any"}
+              inputMode={bitcoinUnit === "SAT" ? "numeric" : "decimal"}
+              value={bitcoinAmount}
+              onChange={(event) => handleBitcoinChange(event.target.value)}
             />
           </div>
           <div className="flex size-9 items-center justify-center text-muted-foreground">
@@ -179,7 +235,7 @@ export function CurrencyConverter() {
 
         <div className="grid grid-cols-4 gap-2">
           {[1, 0.1, 0.01, 0.001].map((amount) => (
-            <Button key={amount} variant="outline" size="sm" onClick={() => handleBtcChange(String(amount))}>
+            <Button key={amount} variant="outline" size="sm" onClick={() => handlePresetBtcAmount(amount)}>
               {amount} BTC
             </Button>
           ))}
