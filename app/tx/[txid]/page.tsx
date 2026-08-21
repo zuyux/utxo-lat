@@ -10,6 +10,7 @@ import { PublicIcon } from "@/components/public-icon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useLanguage } from "@/lib/i18n"
 import { apiFetch, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
 
 interface Outspend {
@@ -56,6 +57,7 @@ interface RbfHistory {
 export default function TransactionPage() {
   const { txid } = useParams<{ txid: string }>()
   const router = useRouter()
+  const { locale, t } = useLanguage()
   const [transaction, setTransaction] = useState<MempoolTransaction | null>(null)
   const [outspends, setOutspends] = useState<Outspend[]>([])
   const [tipHeight, setTipHeight] = useState<number | null>(null)
@@ -85,7 +87,7 @@ export default function TransactionPage() {
         if (history.status === "fulfilled") setRbfHistory(history.value)
       } catch (requestError) {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return
-        setError(requestError instanceof Error ? requestError.message : "Unable to load transaction")
+        setError(requestError instanceof Error ? requestError.message : t("unableTransaction"))
       } finally {
         setLoading(false)
       }
@@ -93,7 +95,7 @@ export default function TransactionPage() {
     load()
 
     return () => controller.abort()
-  }, [txid])
+  }, [txid, t])
 
   const totals = useMemo(() => {
     const input = transaction?.vin.reduce((sum, vin) => sum + (vin.prevout?.value ?? 0), 0) ?? 0
@@ -103,12 +105,12 @@ export default function TransactionPage() {
 
   const copy = async (text: string) => {
     await navigator.clipboard.writeText(text)
-    toast.success("Copied to clipboard")
+    toast.success(t("copied"))
   }
 
-  if (loading) return <PageMessage onBack={() => router.back()} message="Loading live transaction data…" />
+  if (loading) return <PageMessage onBack={() => router.back()} message={t("loadingTransaction")} />
   if (error || !transaction) {
-    return <PageMessage onBack={() => router.back()} title="Transaction not found" message={error || "No transaction data was returned."} />
+    return <PageMessage onBack={() => router.back()} title={t("transactionNotFound")} message={error || t("noTransactionData")} />
   }
 
   const confirmations =
@@ -132,62 +134,62 @@ export default function TransactionPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="container mx-auto px-4 py-4">
-          <Button variant="ghost" onClick={() => router.back()}><PublicIcon name="arrow-left" className="mr-2 size-4" />Back</Button>
+          <Button variant="ghost" onClick={() => router.back()}><PublicIcon name="arrow-left" className="mr-2 size-4" />{t("back")}</Button>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-6">
         <div className="mb-6">
-          <h1 className="mb-2 text-3xl font-bold">Transaction Details</h1>
+          <h1 className="mb-2 text-3xl font-bold">{t("transactionDetails")}</h1>
           <div className="flex items-center gap-2">
             <code className="min-w-0 break-all rounded bg-muted px-2 py-1 text-sm">{transaction.txid}</code>
-            <Button variant="ghost" size="sm" onClick={() => copy(transaction.txid)} aria-label="Copy transaction ID"><PublicIcon name="copy" className="size-4" /></Button>
+            <Button variant="ghost" size="sm" onClick={() => copy(transaction.txid)} aria-label={t("copyTxId")}><PublicIcon name="copy" className="size-4" /></Button>
           </div>
         </div>
 
         <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <InfoCard title="Status" rows={[
-            ["State", transaction.status.confirmed ? `${confirmations.toLocaleString()} confirmation${confirmations === 1 ? "" : "s"}` : "Unconfirmed"],
-            ["Block", transaction.status.block_height?.toLocaleString() ?? "Not yet mined"],
-            ["Timestamp", transaction.status.block_time ? new Date(transaction.status.block_time * 1000).toLocaleString() : "Pending"],
+          <InfoCard title={t("status")} rows={[
+            [t("state"), transaction.status.confirmed ? `${confirmations.toLocaleString(locale)} conf` : t("unconfirmed")],
+            [t("block"), transaction.status.block_height?.toLocaleString(locale) ?? t("notYetMined")],
+            [t("timestamp"), transaction.status.block_time ? new Date(transaction.status.block_time * 1000).toLocaleString(locale) : t("pending")],
           ]} />
-          <InfoCard title="Transaction info" rows={[
-            ["Fee", isCoinbase ? "Coinbase (no fee)" : `${satsToBtc(transaction.fee)} BTC`],
-            ["Size", `${transaction.size.toLocaleString()} bytes`],
-            ["Virtual size", `${vsize.toLocaleString(undefined, { maximumFractionDigits: 2 })} vB`],
-            ["Fee rate", isCoinbase ? "—" : `${nominalFeeRate.toFixed(2)} sat/vB`],
+          <InfoCard title={t("transactionInfo")} rows={[
+            [t("fee"), isCoinbase ? t("coinbaseNoFee") : `${satsToBtc(transaction.fee)} BTC`],
+            [t("size"), `${transaction.size.toLocaleString(locale)} bytes`],
+            [t("virtualSize"), `${vsize.toLocaleString(locale, { maximumFractionDigits: 2 })} vB`],
+            [t("feeRate"), isCoinbase ? "—" : `${nominalFeeRate.toFixed(2)} sat/vB`],
           ]} />
-          <InfoCard title="Amounts" rows={[
-            ["Total input", isCoinbase ? "Newly issued coins" : `${satsToBtc(totals.input)} BTC`],
-            ["Total output", `${satsToBtc(totals.output)} BTC`],
+          <InfoCard title={t("amounts")} rows={[
+            [t("totalInput"), isCoinbase ? t("newlyIssuedCoins") : `${satsToBtc(totals.input)} BTC`],
+            [t("totalOutput"), `${satsToBtc(totals.output)} BTC`],
           ]} />
         </div>
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Transaction internals</CardTitle>
+            <CardTitle>{t("transactionInternals")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               <PolicyMetric
-                label="Version"
-                value={transaction.version.toLocaleString()}
-                detail="Transaction format version"
+                label={t("version")}
+                value={transaction.version.toLocaleString(locale)}
+                detail={t("transactionFormatVersion")}
               />
               <PolicyMetric
                 label="Locktime"
-                value={formatLocktime(transaction.locktime, locktimeEnabled)}
-                detail={`Raw value: ${transaction.locktime.toLocaleString()}`}
+                value={formatLocktime(transaction.locktime, locktimeEnabled, t)}
+                detail={`${t("rawValue")}: ${transaction.locktime.toLocaleString(locale)}`}
               />
               <PolicyMetric
-                label="Weight"
-                value={`${transaction.weight.toLocaleString()} WU`}
-                detail={`${vsize.toLocaleString(undefined, { maximumFractionDigits: 2 })} virtual bytes`}
+                label={t("weight")}
+                value={`${transaction.weight.toLocaleString(locale)} WU`}
+                detail={`${vsize.toLocaleString(locale, { maximumFractionDigits: 2 })} ${t("virtualBytes")}`}
               />
               <PolicyMetric
-                label="Witness size"
-                value={witnessSize > 0 ? `${witnessSize.toLocaleString()} bytes` : "No witness data"}
-                detail={witnessSize > 0 ? `${transaction.vin.filter((input) => input.witness?.length).length} witness input${transaction.vin.filter((input) => input.witness?.length).length === 1 ? "" : "s"}` : "Legacy serialization"}
+                label={t("witnessSize")}
+                value={witnessSize > 0 ? `${witnessSize.toLocaleString(locale)} bytes` : t("noWitnessData")}
+                detail={witnessSize > 0 ? `${transaction.vin.filter((input) => input.witness?.length).length} witness ${t("inputs")}` : t("legacySerialization")}
               />
             </div>
 
@@ -197,12 +199,12 @@ export default function TransactionPage() {
                 <div className="mt-3 space-y-3">
                   {opReturns.map((opReturn) => (
                     <div key={opReturn.index} className="rounded-md border p-3">
-                      <p className="text-xs text-muted-foreground">Output #{opReturn.index}</p>
+                      <p className="text-xs text-muted-foreground">{t("output")} #{opReturn.index}</p>
                       {opReturn.text && (
                         <p className="mt-2 break-words font-mono text-sm">{opReturn.text}</p>
                       )}
                       <p className="mt-2 break-all font-mono text-xs text-muted-foreground">
-                        {opReturn.hex || "Empty payload"}
+                        {opReturn.hex || t("emptyPayload")}
                       </p>
                     </div>
                   ))}
@@ -214,50 +216,50 @@ export default function TransactionPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Replacement & fee dependencies</CardTitle>
+            <CardTitle>{t("replacementFees")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               <PolicyMetric
-                label="Replace-by-fee"
-                value={isCoinbase ? "Not applicable" : signalsRbf ? "Opt-in RBF signaled" : "Not signaled"}
-                detail={signalsRbf ? "At least one input sequence permits replacement" : "No input explicitly opts in"}
+                label={t("replaceByFee")}
+                value={isCoinbase ? t("notApplicable") : signalsRbf ? t("optInRbf") : t("notSignaled")}
+                detail={signalsRbf ? t("rbfPermits") : t("rbfNoOptIn")}
               />
               <PolicyMetric
                 label="Locktime"
-                value={formatLocktime(transaction.locktime, locktimeEnabled)}
-                detail={locktimeEnabled ? "Enforced by non-final input sequence" : transaction.locktime ? "Ignored because every input is final" : "No time or height constraint"}
+                value={formatLocktime(transaction.locktime, locktimeEnabled, t)}
+                detail={locktimeEnabled ? t("enforcedNonFinal") : transaction.locktime ? t("ignoredFinal") : t("noTimeHeight")}
               />
               <PolicyMetric
-                label="CPFP package"
+                label={t("cpfpPackage")}
                 value={
                   cpfp && ((cpfp.ancestors?.length ?? 0) > 0 || (cpfp.descendants?.length ?? 0) > 0)
-                    ? `${cpfp.ancestors?.length ?? 0} parent · ${cpfp.descendants?.length ?? 0} child`
-                    : "No dependencies found"
+                    ? `${cpfp.ancestors?.length ?? 0} ${t("parent")} · ${cpfp.descendants?.length ?? 0} ${t("child")}`
+                    : t("noDependencies")
                 }
                 detail={
                   effectiveFeeRate != null
-                    ? `Effective rate ${effectiveFeeRate.toFixed(2)} sat/vB`
-                    : "Effective rate matches the transaction rate"
+                    ? `${t("effectiveRate")} ${effectiveFeeRate.toFixed(2)} sat/vB`
+                    : t("effectiveMatches")
                 }
               />
               <PolicyMetric
-                label="Replacement history"
-                value={replacementTree.length > 1 ? `${replacementTree.length} versions` : "No replacements found"}
-                detail={replacementTree.some(({ tree }) => tree.fullRbf) ? "Includes full-RBF replacement" : "No full-RBF replacement recorded"}
+                label={t("replacementHistory")}
+                value={replacementTree.length > 1 ? `${replacementTree.length} ${t("versions")}` : t("noReplacements")}
+                detail={replacementTree.some(({ tree }) => tree.fullRbf) ? t("includesFullRbf") : t("noFullRbf")}
               />
             </div>
 
             {cpfp && [...(cpfp.ancestors ?? []), ...(cpfp.descendants ?? [])].length > 0 && (
               <DependencyLinks
-                title="Related package transactions"
+                title={t("relatedPackageTxs")}
                 transactions={[...(cpfp.ancestors ?? []), ...(cpfp.descendants ?? [])]}
               />
             )}
 
             {replacementTree.length > 1 && (
               <div className="mt-6 border-t pt-5">
-                <h3 className="text-sm font-semibold">Replacement timeline</h3>
+                <h3 className="text-sm font-semibold">{t("replacementTimeline")}</h3>
                 <div className="mt-3 space-y-2">
                   {replacementTree.map(({ tree, depth }, index) => (
                     <div key={tree.tx.txid} className="flex flex-col justify-between gap-2 rounded-md border p-3 text-sm sm:flex-row sm:items-center">
@@ -266,12 +268,12 @@ export default function TransactionPage() {
                           {tree.tx.txid}
                         </Link>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {new Date(tree.time * 1000).toLocaleString()} · {tree.fullRbf ? "Full RBF" : tree.tx.rbf ? "Opt-in RBF" : "Replacement"}
+                          {new Date(tree.time * 1000).toLocaleString(locale)} · {tree.fullRbf ? "Full RBF" : tree.tx.rbf ? "Opt-in RBF" : "Replacement"}
                         </p>
                       </div>
                       <div className="shrink-0 text-left sm:text-right">
                         <p className="font-medium">{(tree.tx.rate ?? tree.tx.fee / tree.tx.vsize).toFixed(2)} sat/vB</p>
-                        <p className="text-xs text-muted-foreground">{index === 0 ? "Latest version" : "Replaced version"}</p>
+                        <p className="text-xs text-muted-foreground">{index === 0 ? t("latestVersion") : t("replacedVersion")}</p>
                       </div>
                     </div>
                   ))}
@@ -283,28 +285,28 @@ export default function TransactionPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><PublicIcon name="received" className="size-4" />Inputs ({transaction.vin.length})</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><PublicIcon name="received" className="size-4" />{t("inputs")} ({transaction.vin.length})</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               {transaction.vin.map((input, index) => (
                 <div key={`${input.txid}-${input.vout}-${index}`} className="rounded-lg border p-4">
                   {input.is_coinbase ? (
-                    <div className="font-medium">Coinbase (newly generated coins)</div>
+                    <div className="font-medium">{t("coinbaseNewCoins")}</div>
                   ) : (
                     <>
-                      <Address value={input.prevout?.scriptpubkey_address} fallback={input.prevout?.scriptpubkey_type || "Unknown script"} />
-                      <div className="mt-2 font-medium">{input.prevout ? satsToBtc(input.prevout.value) : "Unknown"} BTC</div>
+                      <Address value={input.prevout?.scriptpubkey_address} fallback={input.prevout?.scriptpubkey_type || t("unknownScript")} />
+                      <div className="mt-2 font-medium">{input.prevout ? satsToBtc(input.prevout.value) : t("unknown")} BTC</div>
                       <Link className="mt-2 block break-all font-mono text-xs text-muted-foreground hover:underline" href={`/tx/${input.txid}`}>
-                        Previous output: {input.txid}:{input.vout}
+                        {t("previousOutput")}: {input.txid}:{input.vout}
                       </Link>
                     </>
                   )}
                   <div className="mt-3 grid grid-cols-1 gap-1 border-t pt-3 font-mono text-xs text-muted-foreground sm:grid-cols-2">
-                    <span>Script: {input.is_coinbase ? "coinbase" : input.prevout?.scriptpubkey_type || "unknown"}</span>
-                    <span>Sequence: {input.sequence.toLocaleString()} (0x{input.sequence.toString(16).padStart(8, "0")})</span>
+                    <span>{t("script")}: {input.is_coinbase ? "coinbase" : input.prevout?.scriptpubkey_type || "unknown"}</span>
+                    <span>{t("sequence")}: {input.sequence.toLocaleString(locale)} (0x{input.sequence.toString(16).padStart(8, "0")})</span>
                     <span>
-                      Witness: {input.witness?.length
-                        ? `${serializedWitnessStackSize(input.witness).toLocaleString()} bytes · ${input.witness.length} item${input.witness.length === 1 ? "" : "s"}`
-                        : "none"}
+                      {t("witness")}: {input.witness?.length
+                        ? `${serializedWitnessStackSize(input.witness).toLocaleString(locale)} bytes · ${input.witness.length} ${input.witness.length === 1 ? t("item") : t("items")}`
+                        : t("none")}
                     </span>
                   </div>
                 </div>
@@ -313,20 +315,20 @@ export default function TransactionPage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><PublicIcon name="sent" className="size-4" />Outputs ({transaction.vout.length})</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><PublicIcon name="sent" className="size-4" />{t("outputs")} ({transaction.vout.length})</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               {transaction.vout.map((output, index) => (
                 <div key={`${output.scriptpubkey}-${index}`} className="rounded-lg border p-4">
                   <Address value={output.scriptpubkey_address} fallback={output.scriptpubkey_type} />
                   <div className="mt-2 font-medium">{satsToBtc(output.value)} BTC</div>
                   <div className="mt-2 font-mono text-xs text-muted-foreground">
-                    Script: {output.scriptpubkey_type}
+                    {t("script")}: {output.scriptpubkey_type}
                   </div>
                   <Badge variant={outspends[index]?.spent ? "secondary" : "default"} className="mt-2">
-                    {outspends[index]?.spent ? "Spent" : "Unspent"}
+                    {outspends[index]?.spent ? t("spent") : t("unspent")}
                   </Badge>
                   {outspends[index]?.txid && (
-                    <Link href={`/tx/${outspends[index].txid}`} className="ml-2 text-xs text-muted-foreground hover:underline">View spending transaction</Link>
+                    <Link href={`/tx/${outspends[index].txid}`} className="ml-2 text-xs text-muted-foreground hover:underline">{t("viewSpendingTx")}</Link>
                   )}
                 </div>
               ))}
@@ -391,10 +393,10 @@ function flattenRbfTree(tree: RbfTree, depth = 0): Array<{ tree: RbfTree; depth:
   ]
 }
 
-function formatLocktime(locktime: number, enabled: boolean) {
-  if (locktime === 0) return "Disabled"
-  if (!enabled) return `${locktime.toLocaleString()} (not enforced)`
-  if (locktime < 500_000_000) return `Block ${locktime.toLocaleString()}`
+function formatLocktime(locktime: number, enabled: boolean, t: ReturnType<typeof useLanguage>["t"]) {
+  if (locktime === 0) return t("disabled")
+  if (!enabled) return `${locktime.toLocaleString()} (${t("notEnforced")})`
+  if (locktime < 500_000_000) return `${t("block")} ${locktime.toLocaleString()}`
   return new Date(locktime * 1000).toLocaleString()
 }
 
@@ -455,9 +457,11 @@ function decodeOpReturn(scriptHex: string) {
 }
 
 function PageMessage({ onBack, title, message }: { onBack: () => void; title?: string; message: string }) {
+  const { t } = useLanguage()
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b"><div className="container mx-auto px-4 py-4"><Button variant="ghost" onClick={onBack}><PublicIcon name="arrow-left" className="mr-2 size-4" />Back</Button></div></header>
+      <header className="border-b"><div className="container mx-auto px-4 py-4"><Button variant="ghost" onClick={onBack}><PublicIcon name="arrow-left" className="mr-2 size-4" />{t("back")}</Button></div></header>
       <main className="container mx-auto px-4 py-20 text-center">
         {title && <h1 className="mb-3 text-2xl font-bold">{title}</h1>}
         {!title && <Loader className="mx-auto mb-4" label={message} />}

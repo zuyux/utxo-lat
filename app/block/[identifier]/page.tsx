@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
 import { Loader } from "@/components/loader"
 import { PublicIcon } from "@/components/public-icon"
+import { useLanguage } from "@/lib/i18n"
 import { apiFetch, apiFetchText, type BlockApi, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
 
 interface BlockTransaction {
@@ -55,7 +56,7 @@ interface BlockDetail {
 const HALVING_INTERVAL = 210_000
 const INITIAL_BLOCK_SUBSIDY = 5_000_000_000
 
-const formatShortHashEnd = (hash: string) => hash ? `...${hash.slice(-16)}` : "Unavailable"
+const formatShortHashEnd = (hash: string, unavailable: string) => hash ? `...${hash.slice(-16)}` : unavailable
 
 const blockSubsidy = (height: number) => {
   const halvings = Math.floor(height / HALVING_INTERVAL)
@@ -136,6 +137,7 @@ const fetchBlockDetail = async (identifier: string): Promise<BlockDetail> => {
 export default function BlockPage() {
   const params = useParams()
   const router = useRouter()
+  const { dateLocale, locale, t } = useLanguage()
   const identifier = params.identifier as string
   const [block, setBlock] = useState<BlockDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -150,18 +152,18 @@ export default function BlockPage() {
         setBlock(await fetchBlockDetail(identifier))
       } catch (requestError) {
         setBlock(null)
-        setError(requestError instanceof Error ? requestError.message : "Unable to load block")
+        setError(requestError instanceof Error ? requestError.message : t("unableBlock"))
       } finally {
         setLoading(false)
       }
     }
 
     fetchBlock()
-  }, [identifier])
+  }, [identifier, t])
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
-    toast.success("Copied to clipboard")
+    toast.success(t("copied"))
   }
 
   const navigateToBlock = (height: number) => {
@@ -185,7 +187,7 @@ export default function BlockPage() {
         ],
       }))
     } catch (requestError) {
-      toast.error(requestError instanceof Error ? requestError.message : "Unable to load more transactions")
+      toast.error(requestError instanceof Error ? requestError.message : t("unableMoreTransactions"))
     } finally {
       setLoadingMore(false)
     }
@@ -198,15 +200,15 @@ export default function BlockPage() {
           <div className="container mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => router.back()}>
               <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
-              Back
+              {t("back")}
             </Button>
           </div>
         </header>
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
-              <Loader className="mx-auto mb-4" label="Loading block details" />
-              <p className="text-muted-foreground">Loading block details...</p>
+              <Loader className="mx-auto mb-4" label={t("loadingBlock")} />
+              <p className="text-muted-foreground">{t("loadingBlock")}...</p>
             </div>
           </div>
         </div>
@@ -221,14 +223,14 @@ export default function BlockPage() {
           <div className="container mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => router.back()}>
               <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
-              Back
+              {t("back")}
             </Button>
           </div>
         </header>
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
-            <h1 className="text-2xl font-bold mb-4">Block Not Found</h1>
-            <p className="text-muted-foreground">{error || "The block you searched for does not exist."}</p>
+            <h1 className="text-2xl font-bold mb-4">{t("blockNotFound")}</h1>
+            <p className="text-muted-foreground">{error || t("blockNotFoundMessage")}</p>
           </div>
         </div>
       </div>
@@ -242,7 +244,7 @@ export default function BlockPage() {
           <div className="flex items-center justify-between">
             <Button variant="ghost" onClick={() => router.back()}>
               <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
-              Back
+              {t("back")}
             </Button>
             <div className="flex items-center gap-2">
               <Button
@@ -252,7 +254,7 @@ export default function BlockPage() {
                 disabled={block.height <= 1}
               >
                 <PublicIcon name="chevronLeft" className="mr-1 h-4 w-4" />
-                Previous
+                {t("previous")}
               </Button>
               <Button
                 variant="outline"
@@ -260,7 +262,7 @@ export default function BlockPage() {
                 onClick={() => navigateToBlock(block.height + 1)}
                 disabled={!block.nextBlockHash}
               >
-                Next
+                {t("next")}
                 <PublicIcon name="chevronRight" className="ml-1 h-4 w-4" />
               </Button>
             </div>
@@ -272,7 +274,7 @@ export default function BlockPage() {
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
             <PublicIcon name="blocks" className="h-6 w-6" />
-            <h1 className="text-3xl font-bold">Block #{block.height.toLocaleString()}</h1>
+            <h1 className="text-3xl font-bold">{t("block")} #{block.height.toLocaleString(locale)}</h1>
           </div>
           <div className="flex items-center gap-2">
             <code className="text-sm bg-muted px-2 py-1 rounded break-all">{block.hash}</code>
@@ -285,29 +287,29 @@ export default function BlockPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Confirmations</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("confirmations")}</CardTitle>
               <Badge variant="default">{block.confirmations}</Badge>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{block.confirmations}</div>
-              <p className="text-xs text-muted-foreground">Network confirmations</p>
+              <p className="text-xs text-muted-foreground">{t("networkConfirmations")}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Transactions</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("transactions")}</CardTitle>
               <PublicIcon name="miner-users" className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{block.transactionCount.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">Total transactions</p>
+              <div className="text-2xl font-bold">{block.transactionCount.toLocaleString(locale)}</div>
+              <p className="text-xs text-muted-foreground">{t("totalTransactions")}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Block Size</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("blockSize")}</CardTitle>
               <PublicIcon name="hard-drive" className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -318,75 +320,75 @@ export default function BlockPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Timestamp</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("timestamp")}</CardTitle>
               <PublicIcon name="clock" className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-lg font-bold">
-                {formatDistanceToNow(new Date(block.timestamp), { addSuffix: true })}
+                {formatDistanceToNow(new Date(block.timestamp), { addSuffix: true, locale: dateLocale })}
               </div>
-              <p className="text-xs text-muted-foreground">{new Date(block.timestamp).toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">{new Date(block.timestamp).toLocaleString(locale)}</p>
             </CardContent>
           </Card>
         </div>
 
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="transactions">Transactions</TabsTrigger>
-            <TabsTrigger value="technical">Technical Details</TabsTrigger>
+            <TabsTrigger value="overview">{t("overview")}</TabsTrigger>
+            <TabsTrigger value="transactions">{t("transactions")}</TabsTrigger>
+            <TabsTrigger value="technical">{t("technicalDetails")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Block Information</CardTitle>
+                  <CardTitle>{t("blockInformation")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Height</span>
-                    <span className="font-medium">{block.height.toLocaleString()}</span>
+                    <span className="text-muted-foreground">{t("height")}</span>
+                    <span className="font-medium">{block.height.toLocaleString(locale)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Miner</span>
+                    <span className="text-muted-foreground">{t("miner")}</span>
                     <Badge variant="outline">{block.miner}</Badge>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Difficulty</span>
+                    <span className="text-muted-foreground">{t("difficulty")}</span>
                     <span className="font-medium">{block.difficulty}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Block Reward</span>
+                    <span className="text-muted-foreground">{t("blockReward")}</span>
                     <span className="font-medium">{block.blockReward} BTC</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Total Fees</span>
-                    <span className="font-medium">{block.totalFees ? `${block.totalFees} BTC` : "Unavailable"}</span>
+                    <span className="text-muted-foreground">{t("totalFees")}</span>
+                    <span className="font-medium">{block.totalFees ? `${block.totalFees} BTC` : t("unavailable")}</span>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Block Navigation</CardTitle>
+                  <CardTitle>{t("blockNavigation")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Previous Block</label>
+                    <label className="text-sm font-medium text-muted-foreground">{t("previousBlock")}</label>
                     <Button
                       variant="outline"
                       className="w-full justify-start font-mono text-xs bg-transparent"
                       onClick={() => navigateToBlock(block.height - 1)}
                       disabled={block.height <= 1}
                     >
-                      {formatShortHashEnd(block.previousBlockHash)}
+                      {formatShortHashEnd(block.previousBlockHash, t("unavailable"))}
                       <PublicIcon name="externalLink" className="ml-2 h-3 w-3" />
                     </Button>
                   </div>
                   {block.nextBlockHash && (
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-muted-foreground">Next Block</label>
+                      <label className="text-sm font-medium text-muted-foreground">{t("nextBlock")}</label>
                       <Button
                         variant="outline"
                         className="w-full justify-start font-mono text-xs bg-transparent"
@@ -403,45 +405,45 @@ export default function BlockPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Fee Distribution & Transaction Flow</CardTitle>
+                <CardTitle>{t("feeFlow")}</CardTitle>
                 <CardDescription>
-                  Whole-block statistics across all {block.transactionCount.toLocaleString()} transactions
+                  {t("wholeBlockStats")} {block.transactionCount.toLocaleString(locale)} {t("transactions")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-6">
                   <BlockMetric
-                    label="Median fee rate"
-                    value={block.medianFeeRate != null ? `${formatFeeRate(block.medianFeeRate)} sat/vB` : "Unavailable"}
+                    label={t("medianFeeRate")}
+                    value={block.medianFeeRate != null ? `${formatFeeRate(block.medianFeeRate)} sat/vB` : t("unavailable")}
                   />
                   <BlockMetric
-                    label="Average fee rate"
-                    value={block.averageFeeRate != null ? `${formatFeeRate(block.averageFeeRate)} sat/vB` : "Unavailable"}
+                    label={t("averageFeeRate")}
+                    value={block.averageFeeRate != null ? `${formatFeeRate(block.averageFeeRate)} sat/vB` : t("unavailable")}
                   />
                   <BlockMetric
-                    label="Fee range"
+                    label={t("feeRange")}
                     value={block.feeRange.length > 0
                       ? `${formatFeeRate(Math.min(...block.feeRange))}–${formatFeeRate(Math.max(...block.feeRange))} sat/vB`
-                      : "Unavailable"}
+                      : t("unavailable")}
                   />
                   <BlockMetric
-                    label="Total inputs"
-                    value={block.totalInputs?.toLocaleString() ?? "Unavailable"}
+                    label={t("totalInputs")}
+                    value={block.totalInputs?.toLocaleString(locale) ?? t("unavailable")}
                   />
                   <BlockMetric
-                    label="Total outputs"
-                    value={block.totalOutputs?.toLocaleString() ?? "Unavailable"}
+                    label={t("totalOutputs")}
+                    value={block.totalOutputs?.toLocaleString(locale) ?? t("unavailable")}
                   />
                   <BlockMetric
-                    label="Transferred value"
-                    value={block.totalTransferred ? `${block.totalTransferred} BTC` : "Unavailable"}
-                    detail="Sum of all outputs"
+                    label={t("transferredValue")}
+                    value={block.totalTransferred ? `${block.totalTransferred} BTC` : t("unavailable")}
+                    detail={t("sumAllOutputs")}
                   />
                 </div>
 
                 {block.feeRange.length > 0 && (
                   <div className="mt-6 border-t pt-4">
-                    <p className="text-xs text-muted-foreground">Fee-rate distribution bands</p>
+                    <p className="text-xs text-muted-foreground">{t("feeBands")}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {block.feeRange.map((fee, index) => (
                         <span key={`${fee}-${index}`} className="rounded-md bg-secondary px-2 py-1 text-xs font-medium">
@@ -458,9 +460,9 @@ export default function BlockPage() {
           <TabsContent value="transactions">
             <Card>
               <CardHeader>
-                <CardTitle>Block Transactions</CardTitle>
+                <CardTitle>{t("blockTransactions")}</CardTitle>
                 <CardDescription>
-                  Showing {block.transactions.length.toLocaleString()} of {block.transactionCount.toLocaleString()} transactions
+                  {t("showing")} {block.transactions.length.toLocaleString(locale)} {t("of")} {block.transactionCount.toLocaleString(locale)} {t("transactions")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -481,30 +483,30 @@ export default function BlockPage() {
                               {tx.isCoinbase && <Badge variant="secondary">Coinbase</Badge>}
                             </div>
                             <p className="mt-1 text-xs text-muted-foreground">
-                              {tx.inputCount.toLocaleString()} input{tx.inputCount === 1 ? "" : "s"} ·{" "}
-                              {tx.outputCount.toLocaleString()} output{tx.outputCount === 1 ? "" : "s"}
+                              {tx.inputCount.toLocaleString(locale)} {t("inputs")} ·{" "}
+                              {tx.outputCount.toLocaleString(locale)} {t("outputs")}
                             </p>
                           </div>
                         </div>
                         <div className="flex shrink-0 gap-1">
-                          <Button variant="ghost" size="icon" className="size-8" onClick={() => copyToClipboard(tx.txid)} aria-label="Copy transaction ID">
+                          <Button variant="ghost" size="icon" className="size-8" onClick={() => copyToClipboard(tx.txid)} aria-label={t("copyTxId")}>
                             <PublicIcon name="copy" className="size-3.5" />
                           </Button>
                           <Button variant="outline" size="sm" onClick={() => router.push(`/tx/${tx.txid}`)}>
-                            Details <PublicIcon name="externalLink" className="ml-1.5 size-3.5" />
+                            {t("details")} <PublicIcon name="externalLink" className="ml-1.5 size-3.5" />
                           </Button>
                         </div>
                       </div>
 
                       <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 border-t pt-4 text-sm md:grid-cols-3 lg:grid-cols-6">
-                        <TransactionMetric label="Total input" value={tx.totalInput ? `${tx.totalInput} BTC` : "New coins"} />
-                        <TransactionMetric label="Total output" value={`${tx.totalOutput} BTC`} />
-                        <TransactionMetric label="Fee" value={tx.isCoinbase ? "No fee" : `${tx.fee} BTC`} />
-                        <TransactionMetric label="Fee rate" value={tx.isCoinbase ? "—" : `${tx.feeRate} sat/vB`} />
-                        <TransactionMetric label="Size" value={`${tx.size.toLocaleString()} bytes`} />
+                        <TransactionMetric label={t("totalInput")} value={tx.totalInput ? `${tx.totalInput} BTC` : t("newCoins")} />
+                        <TransactionMetric label={t("totalOutput")} value={`${tx.totalOutput} BTC`} />
+                        <TransactionMetric label={t("fee")} value={tx.isCoinbase ? t("noFee") : `${tx.fee} BTC`} />
+                        <TransactionMetric label={t("feeRate")} value={tx.isCoinbase ? "—" : `${tx.feeRate} sat/vB`} />
+                        <TransactionMetric label={t("size")} value={`${tx.size.toLocaleString(locale)} bytes`} />
                         <TransactionMetric
-                          label="Virtual size"
-                          value={`${tx.vsize.toLocaleString(undefined, { maximumFractionDigits: 2 })} vB`}
+                          label={t("virtualSize")}
+                          value={`${tx.vsize.toLocaleString(locale, { maximumFractionDigits: 2 })} vB`}
                         />
                       </div>
                     </div>
@@ -513,10 +515,10 @@ export default function BlockPage() {
                     <div className="pt-2 text-center">
                       <Button variant="outline" onClick={loadMoreTransactions} disabled={loadingMore}>
                         {loadingMore && <Loader className="mr-2" size="sm" label="Loading more transactions" />}
-                        Load 25 more
+                        {t("loadOlderTransactions")}
                       </Button>
                       <p className="mt-2 text-xs text-muted-foreground">
-                        {(block.transactionCount - block.transactions.length).toLocaleString()} remaining
+                        {(block.transactionCount - block.transactions.length).toLocaleString(locale)} {t("remaining")}
                       </p>
                     </div>
                   )}
@@ -528,13 +530,13 @@ export default function BlockPage() {
           <TabsContent value="technical">
             <Card>
               <CardHeader>
-                <CardTitle>Technical Details</CardTitle>
-                <CardDescription>Low-level block information</CardDescription>
+                <CardTitle>{t("technicalDetails")}</CardTitle>
+                <CardDescription>{t("blockInformation")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Block Hash</label>
+                    <label className="text-sm font-medium text-muted-foreground">{t("blockHash")}</label>
                     <div className="font-mono text-sm bg-muted p-2 rounded break-all flex items-center justify-between">
                       {block.hash}
                       <Button variant="ghost" size="sm" onClick={() => copyToClipboard(block.hash)}>
@@ -543,7 +545,7 @@ export default function BlockPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Merkle Root</label>
+                    <label className="text-sm font-medium text-muted-foreground">{t("merkleRoot")}</label>
                     <div className="font-mono text-sm bg-muted p-2 rounded break-all flex items-center justify-between">
                       {block.merkleRoot}
                       <Button variant="ghost" size="sm" onClick={() => copyToClipboard(block.merkleRoot)}>
@@ -552,20 +554,20 @@ export default function BlockPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Nonce</label>
+                    <label className="text-sm font-medium text-muted-foreground">{t("nonce")}</label>
                     <div className="text-sm bg-muted p-2 rounded">{block.nonce.toLocaleString()}</div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Version</label>
+                    <label className="text-sm font-medium text-muted-foreground">{t("version")}</label>
                     <div className="text-sm bg-muted p-2 rounded">{block.version}</div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Size</label>
-                    <div className="text-sm bg-muted p-2 rounded">{block.size.toLocaleString()} bytes</div>
+                    <label className="text-sm font-medium text-muted-foreground">{t("size")}</label>
+                    <div className="text-sm bg-muted p-2 rounded">{block.size.toLocaleString(locale)} bytes</div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Weight</label>
-                    <div className="text-sm bg-muted p-2 rounded">{block.weight.toLocaleString()} WU</div>
+                    <label className="text-sm font-medium text-muted-foreground">{t("weight")}</label>
+                    <div className="text-sm bg-muted p-2 rounded">{block.weight.toLocaleString(locale)} WU</div>
                   </div>
                 </div>
               </CardContent>

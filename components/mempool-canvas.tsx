@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { apiFetch } from "@/lib/mempool"
+import { useLanguage } from "@/lib/i18n"
 
 const CELL_SIZE = 8
 const CELL_GAP = 2
@@ -108,6 +109,7 @@ function formatFeeBand(cell: Cell) {
 }
 
 export function MempoolCanvas() {
+  const { locale, t } = useLanguage()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const cellsRef = useRef<Cell[]>([])
   const dimensionsRef = useRef({ columns: 0, rows: 0 })
@@ -190,7 +192,7 @@ export function MempoolCanvas() {
         setError("")
       } catch (requestError) {
         if (!active) return
-        setError(requestError instanceof Error ? requestError.message : "Unable to load mempool")
+        setError(requestError instanceof Error ? requestError.message : t("unableMempool"))
       }
     }
     load()
@@ -199,7 +201,7 @@ export function MempoolCanvas() {
       active = false
       window.clearInterval(interval)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     draw()
@@ -241,11 +243,11 @@ export function MempoolCanvas() {
     : []
   const feeEstimates = fees
     ? [
-        { label: "Next block", value: fees.fastestFee, detail: "Highest priority" },
-        { label: "30 minutes", value: fees.halfHourFee, detail: "About 3 blocks" },
-        { label: "1 hour", value: fees.hourFee, detail: "About 6 blocks" },
-        { label: "Economy", value: fees.economyFee, detail: "No time target" },
-        { label: "Minimum relay", value: fees.minimumFee, detail: "Provider minimum" },
+        { label: t("mempoolNextBlock"), value: fees.fastestFee, detail: t("highestPriority") },
+        { label: t("minutes30"), value: fees.halfHourFee, detail: t("about3Blocks") },
+        { label: t("hour1"), value: fees.hourFee, detail: t("about6Blocks") },
+        { label: t("economy"), value: fees.economyFee, detail: t("noTimeTarget") },
+        { label: t("minimumRelay"), value: fees.minimumFee, detail: t("providerMinimum") },
       ]
     : []
 
@@ -254,28 +256,28 @@ export function MempoolCanvas() {
       <div className="flex flex-wrap items-end justify-between gap-3 pb-3">
         <div>
           <div className="flex items-center gap-2">
-            <h2 id="mempool-heading" className="text-sm font-semibold">Mempool</h2>
+            <h2 id="mempool-heading" className="text-sm font-semibold">{t("mempool")}</h2>
             {!error && lastUpdated && (
-              <span className="size-1.5 bg-emerald-500" title={`Updated ${lastUpdated.toLocaleTimeString()}`} />
+              <span className="size-1.5 bg-emerald-500" title={`${t("updated")} ${lastUpdated.toLocaleTimeString(locale)}`} />
             )}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {error
-              ? `Live data unavailable: ${error}`
+              ? `${t("liveDataUnavailable")}: ${error}`
               : stats
-                ? `${stats.count.toLocaleString()} unconfirmed transactions`
-                : "Loading live mempool…"}
+                ? `${stats.count.toLocaleString(locale)} ${t("unconfirmedTransactions")}`
+                : t("loadingMempool")}
           </p>
         </div>
 
         <div className="flex gap-4 text-right">
           <div>
             <p className="text-xs font-medium">{stats ? `${(stats.vsize / 1_000_000).toFixed(1)} vMB` : "—"}</p>
-            <p className="text-[10px] text-muted-foreground">waiting</p>
+            <p className="text-[10px] text-muted-foreground">{t("waiting")}</p>
           </div>
           <div>
             <p className="text-xs font-medium">{stats ? `${(stats.total_fee / 100_000_000).toFixed(4)} BTC` : "—"}</p>
-            <p className="text-[10px] text-muted-foreground">queued fees</p>
+            <p className="text-[10px] text-muted-foreground">{t("queuedFees")}</p>
           </div>
         </div>
       </div>
@@ -296,13 +298,13 @@ export function MempoolCanvas() {
 
       <div className="relative overflow-hidden border-y py-3">
         <p className="mb-2 px-1 text-[9px] text-muted-foreground">
-          white outline = top 1 vMB by fee histogram
+          {t("whiteOutline")}
         </p>
         <canvas
           ref={canvasRef}
           className="block w-full cursor-crosshair"
           role="img"
-          aria-label="Live Bitcoin mempool virtual-size distribution grouped by fee rate"
+          aria-label={t("mempoolCanvasAria")}
           onPointerMove={handlePointerMove}
           onPointerLeave={() => setHovered(null)}
         />
@@ -315,7 +317,7 @@ export function MempoolCanvas() {
               {formatFeeBand(hovered)}
             </p>
             <p className="mt-0.5 text-muted-foreground">
-              {(hovered.vsize / 1_000).toFixed(1)} kvB queued
+              {(hovered.vsize / 1_000).toFixed(1)} kvB {t("queued")}
             </p>
           </div>
         )}
@@ -332,58 +334,49 @@ export function MempoolCanvas() {
         </div>
         <div className="flex items-center gap-2">
           <p className="text-[10px] text-muted-foreground">
-            1 cell = {(vbytesPerCell / 1_000).toLocaleString()} kvB · live fee histogram
+            1 cell = {(vbytesPerCell / 1_000).toLocaleString(locale)} kvB · {t("cellLiveHistogram")}
           </p>
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]">
                 <PublicIcon name="info" />
-                About this graph
+                {t("aboutGraph")}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Understanding the mempool</DialogTitle>
+                <DialogTitle>{t("understandingMempool")}</DialogTitle>
                 <DialogDescription>
-                  What is waiting for confirmation and how this graph represents it.
+                  {t("understandingMempoolDesc")}
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4 text-sm leading-relaxed text-muted-foreground">
                 <div>
-                  <h4 className="font-medium text-foreground">What is the mempool?</h4>
+                  <h4 className="font-medium text-foreground">{t("whatMempool")}</h4>
                   <p className="mt-1">
-                    The mempool is the queue of valid Bitcoin transactions known to a node but
-                    not yet included in a block. Each node has its own view, so totals can differ
-                    slightly between providers.
+                    {t("whatMempoolText")}
                   </p>
                 </div>
 
                 <div>
-                  <h4 className="font-medium text-foreground">What does the graph show?</h4>
+                  <h4 className="font-medium text-foreground">{t("graphShows")}</h4>
                   <p className="mt-1">
-                    Each cell represents a quantity of transaction virtual size, measured in
-                    virtual bytes (vB). Cells run from higher fee rates on the left to lower fee
-                    rates on the right. Hover a cell to see its fee band and queued size.
+                    {t("graphShowsText")}
                   </p>
                 </div>
 
                 <div>
-                  <h4 className="font-medium text-foreground">Colors and the white outline</h4>
+                  <h4 className="font-medium text-foreground">{t("colorsOutline")}</h4>
                   <p className="mt-1">
-                    Colors compare fee bands with the current confirmation-fee estimates. The
-                    white outline marks the first 1 vMB in fee-histogram order—roughly one
-                    block&apos;s maximum virtual size.
+                    {t("colorsOutlineText")}
                   </p>
                 </div>
 
                 <div>
-                  <h4 className="font-medium text-foreground">Important limitation</h4>
+                  <h4 className="font-medium text-foreground">{t("limitation")}</h4>
                   <p className="mt-1">
-                    This is a fee-pressure overview, not a guaranteed next-block template.
-                    Miners can select transaction packages differently because of dependencies,
-                    effective package fees, policy, and other constraints. Data refreshes about
-                    every 30 seconds.
+                    {t("limitationText")}
                   </p>
                 </div>
               </div>
@@ -392,7 +385,7 @@ export function MempoolCanvas() {
         </div>
       </div>
       <p className="pt-1 text-[9px] text-muted-foreground">
-        Histogram order is not a next-block forecast; miners may prioritize transaction packages differently.
+        {t("histogramCaveat")}
       </p>
 
     </section>

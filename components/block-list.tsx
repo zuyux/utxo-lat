@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns"
 import { useRouter } from "next/navigation"
 
 import { PublicIcon } from "@/components/public-icon"
+import { useLanguage } from "@/lib/i18n"
 
 interface Block {
   height: number
@@ -21,6 +22,7 @@ interface BlockListProps {
 
 export function BlockList({ blocks, detailed = false }: BlockListProps) {
   const router = useRouter()
+  const { dateLocale, t } = useLanguage()
 
   return (
     <div className="divide-y">
@@ -38,7 +40,7 @@ export function BlockList({ blocks, detailed = false }: BlockListProps) {
               </span>
               {index === 0 && (
                 <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
-                  latest
+                  {t("latest")}
                 </span>
               )}
             </div>
@@ -50,7 +52,7 @@ export function BlockList({ blocks, detailed = false }: BlockListProps) {
 
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="whitespace-nowrap">
-              {formatDistanceToNow(new Date(block.timestamp), { addSuffix: true })}
+              {formatDistanceToNow(new Date(block.timestamp), { addSuffix: true, locale: dateLocale })}
             </span>
             <PublicIcon name="chevronRight" className="size-4 transition-transform group-hover:translate-x-0.5" />
           </div>

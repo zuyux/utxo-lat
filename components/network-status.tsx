@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 
 import { apiFetch } from "@/lib/mempool"
+import { useLanguage } from "@/lib/i18n"
 
 interface MiningStats {
   currentHashrate: number
@@ -42,6 +43,7 @@ function formatRemainingTime(milliseconds: number) {
 }
 
 export function NetworkStatus() {
+  const { locale, t } = useLanguage()
   const [mining, setMining] = useState<MiningStats | null>(null)
   const [adjustment, setAdjustment] = useState<DifficultyAdjustment | null>(null)
   const [error, setError] = useState("")
@@ -61,7 +63,7 @@ export function NetworkStatus() {
         setError("")
       } catch (requestError) {
         if (!active) return
-        setError(requestError instanceof Error ? requestError.message : "Unable to load network status")
+        setError(requestError instanceof Error ? requestError.message : t("unableNetwork"))
       }
     }
 
@@ -71,35 +73,35 @@ export function NetworkStatus() {
       active = false
       window.clearInterval(interval)
     }
-  }, [])
+  }, [t])
 
   const metrics = [
     {
-      label: "Hashrate",
+      label: t("hashrate"),
       value: mining ? formatHashrate(mining.currentHashrate) : "—",
-      detail: "3-day estimate",
+      detail: t("threeDayEstimate"),
     },
     {
-      label: "Difficulty",
+      label: t("difficulty"),
       value: mining ? formatDifficulty(mining.currentDifficulty) : "—",
-      detail: "Current target",
+      detail: t("currentTarget"),
     },
     {
-      label: "Expected adjustment",
+      label: t("expectedAdjustment"),
       value: adjustment
         ? `${adjustment.difficultyChange >= 0 ? "+" : ""}${adjustment.difficultyChange.toFixed(2)}%`
         : "—",
-      detail: adjustment ? `${adjustment.progressPercent.toFixed(1)}% through epoch` : "Calculating",
+      detail: adjustment ? `${adjustment.progressPercent.toFixed(1)}% ${t("throughEpoch")}` : t("calculating"),
     },
     {
-      label: "Until retarget",
+      label: t("untilRetarget"),
       value: adjustment ? formatRemainingTime(adjustment.remainingTime) : "—",
       detail: adjustment
-        ? `${adjustment.remainingBlocks.toLocaleString()} blocks · ${new Date(adjustment.estimatedRetargetDate).toLocaleDateString(undefined, {
+        ? `${adjustment.remainingBlocks.toLocaleString(locale)} ${t("blocks")} · ${new Date(adjustment.estimatedRetargetDate).toLocaleDateString(locale, {
             month: "short",
             day: "numeric",
           })}`
-        : "Calculating",
+        : t("calculating"),
     },
   ]
 
@@ -108,14 +110,14 @@ export function NetworkStatus() {
       <div className="flex items-end justify-between pb-3">
         <div>
           <div className="flex items-center gap-2">
-            <h2 id="network-heading" className="text-sm font-semibold">Network status</h2>
+            <h2 id="network-heading" className="text-sm font-semibold">{t("networkStatus")}</h2>
             {!error && mining && adjustment && <span className="size-1.5 bg-emerald-500" />}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {error ? `Live data unavailable: ${error}` : "Mining and difficulty retarget"}
+            {error ? `${t("liveDataUnavailable")}: ${error}` : t("miningRetarget")}
           </p>
         </div>
-        <p className="text-[10px] text-muted-foreground">refreshes every minute</p>
+        <p className="text-[10px] text-muted-foreground">{t("refreshMinute")}</p>
       </div>
 
       <div className="grid grid-cols-2 border sm:grid-cols-4">

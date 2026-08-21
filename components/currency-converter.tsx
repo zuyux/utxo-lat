@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useLanguage } from "@/lib/i18n"
 const currencies = [
   { code: "USD", name: "US Dollar", symbol: "$" },
   { code: "EUR", name: "Euro", symbol: "€" },
@@ -38,8 +39,8 @@ function isCurrencyCode(value: string | null): value is CurrencyCode {
   return currencies.some((currency) => currency.code === value)
 }
 
-function formatPrice(value: number, currency: CurrencyCode, maximumFractionDigits = 0) {
-  return new Intl.NumberFormat("en-US", {
+function formatPrice(value: number, currency: CurrencyCode, locale: string, maximumFractionDigits = 0) {
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
     maximumFractionDigits,
@@ -57,6 +58,7 @@ function btcToCryptoAmount(value: number, unit: BitcoinUnit) {
 }
 
 export function CurrencyConverter() {
+  const { locale, t } = useLanguage()
   const [prices, setPrices] = useState<PriceResponse | null>(null)
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>("USD")
   const [bitcoinUnit, setBitcoinUnit] = useState<BitcoinUnit>("BTC")
@@ -77,14 +79,14 @@ export function CurrencyConverter() {
         cache: "no-store",
         headers: { Accept: "application/json" },
       })
-      if (!response.ok) throw new Error("Live price unavailable")
+      if (!response.ok) throw new Error(t("livePriceUnavailable"))
       const data = await response.json() as PriceResponse
       setPrices(data)
       setError("")
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Price unavailable")
+      setError(requestError instanceof Error ? requestError.message : t("priceUnavailable"))
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     loadPrices()
@@ -150,21 +152,21 @@ export function CurrencyConverter() {
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" className="h-9 px-2 font-mono text-xs tabular-nums">
-          {selectedPrice ? formatPrice(selectedPrice, selectedCurrency) : "—"}
+          {selectedPrice ? formatPrice(selectedPrice, selectedCurrency, locale) : "—"}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Bitcoin converter</DialogTitle>
+          <DialogTitle>{t("converter")}</DialogTitle>
           <DialogDescription>
-            Live BTC exchange rates{prices ? ` from ${prices.source} · updated ${new Date(prices.time * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+            {t("liveRates")}{prices ? ` ${t("from")} ${prices.source} · ${t("updated")} ${new Date(prices.time * 1000).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}` : ""}
           </DialogDescription>
         </DialogHeader>
 
         <div className="rounded-md border bg-muted/30 p-4 text-center">
           <p className="text-xs text-muted-foreground">1 BTC</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">
-            {prices ? formatPrice(prices[selectedCurrency], selectedCurrency, 2) : "—"}
+            {prices ? formatPrice(prices[selectedCurrency], selectedCurrency, locale, 2) : "—"}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {currencies.find((currency) => currency.code === selectedCurrency)?.name}
@@ -172,7 +174,7 @@ export function CurrencyConverter() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="converter-currency">Fiat currency</Label>
+          <Label htmlFor="converter-currency">{t("fiatCurrency")}</Label>
           <Select value={selectedCurrency} onValueChange={handleCurrencyChange}>
             <SelectTrigger id="converter-currency">
               <SelectValue />
@@ -229,7 +231,7 @@ export function CurrencyConverter() {
         {error && (
           <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 p-3 text-xs text-destructive">
             <span>{error}</span>
-            <Button variant="outline" size="sm" onClick={loadPrices}>Retry</Button>
+            <Button variant="outline" size="sm" onClick={loadPrices}>{t("retry")}</Button>
           </div>
         )}
 

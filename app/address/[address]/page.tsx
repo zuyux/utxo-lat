@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
 import { Loader } from "@/components/loader"
 import { PublicIcon } from "@/components/public-icon"
+import { useLanguage } from "@/lib/i18n"
 import { apiFetch, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
 
 interface AddressTransaction {
@@ -110,6 +111,7 @@ function getAddressType(address: string) {
 export default function AddressPage() {
   const params = useParams()
   const router = useRouter()
+  const { dateLocale, locale, t } = useLanguage()
   const address = params.address as string
   const [addressDetail, setAddressDetail] = useState<AddressDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -129,18 +131,18 @@ export default function AddressPage() {
         setVisibleUtxos(50)
       } catch (requestError) {
         setAddressDetail(null)
-        setError(requestError instanceof Error ? requestError.message : "Unable to load address")
+        setError(requestError instanceof Error ? requestError.message : t("unableAddress"))
       } finally {
         setLoading(false)
       }
     }
 
     fetchAddress()
-  }, [address])
+  }, [address, t])
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
-    toast.success("Copied to clipboard")
+    toast.success(t("copied"))
   }
 
   const loadMoreTransactions = async () => {
@@ -165,7 +167,7 @@ export default function AddressPage() {
       }))
       setHasMoreTransactions(page.length === 25)
     } catch (requestError) {
-      toast.error(requestError instanceof Error ? requestError.message : "Unable to load more transactions")
+      toast.error(requestError instanceof Error ? requestError.message : t("unableMoreTransactions"))
     } finally {
       setLoadingMore(false)
     }
@@ -178,15 +180,15 @@ export default function AddressPage() {
           <div className="container mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => router.back()}>
               <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
-              Back
+              {t("back")}
             </Button>
           </div>
         </header>
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
-              <Loader className="mx-auto mb-4" label="Loading address details" />
-              <p className="text-muted-foreground">Loading address details...</p>
+              <Loader className="mx-auto mb-4" label={t("loadingAddress")} />
+              <p className="text-muted-foreground">{t("loadingAddress")}...</p>
             </div>
           </div>
         </div>
@@ -201,14 +203,14 @@ export default function AddressPage() {
           <div className="container mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => router.back()}>
               <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
-              Back
+              {t("back")}
             </Button>
           </div>
         </header>
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
-            <h1 className="text-2xl font-bold mb-4">Address Not Found</h1>
-            <p className="text-muted-foreground">{error || "The address you searched for does not exist."}</p>
+            <h1 className="text-2xl font-bold mb-4">{t("addressNotFound")}</h1>
+            <p className="text-muted-foreground">{error || t("addressNotFoundMessage")}</p>
           </div>
         </div>
       </div>
@@ -225,14 +227,14 @@ export default function AddressPage() {
         <div className="container mx-auto px-4 py-4">
           <Button variant="ghost" onClick={() => router.back()}>
             <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
-            Back
+            {t("back")}
           </Button>
         </div>
       </header>
 
       <div className="container mx-auto px-4 py-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Address Details</h1>
+          <h1 className="text-3xl font-bold mb-2">{t("addressDetails")}</h1>
           <div className="flex items-center gap-2">
             <code className="text-sm bg-muted px-2 py-1 rounded break-all">{addressDetail.address}</code>
             <Button variant="ghost" size="sm" onClick={() => copyToClipboard(addressDetail.address)}>
@@ -244,66 +246,66 @@ export default function AddressPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Balance</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("balance")}</CardTitle>
               <PublicIcon name="wallet" className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{addressDetail.balance} BTC</div>
-              <p className="text-xs text-muted-foreground">Confirmed and mempool totals</p>
+              <p className="text-xs text-muted-foreground">{t("confirmedMempoolTotals")}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Received</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("totalReceived")}</CardTitle>
               <PublicIcon name="received" className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{addressDetail.totalReceived} BTC</div>
-              <p className="text-xs text-muted-foreground">All time received</p>
+              <p className="text-xs text-muted-foreground">{t("allTimeReceived")}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Sent</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("totalSent")}</CardTitle>
               <PublicIcon name="sent" className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">{addressDetail.totalSent} BTC</div>
-              <p className="text-xs text-muted-foreground">All time sent</p>
+              <p className="text-xs text-muted-foreground">{t("allTimeSent")}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Transactions</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("transactions")}</CardTitle>
               <PublicIcon name="externalLink" className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{addressDetail.transactionCount}</div>
-              <p className="text-xs text-muted-foreground">Total transactions</p>
+              <p className="text-xs text-muted-foreground">{t("totalTransactions")}</p>
             </CardContent>
           </Card>
         </div>
 
         <Tabs defaultValue="transactions" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="transactions">Transactions</TabsTrigger>
+            <TabsTrigger value="transactions">{t("transactions")}</TabsTrigger>
             <TabsTrigger value="utxos">UTXOs ({addressDetail.utxos.length.toLocaleString()})</TabsTrigger>
-            <TabsTrigger value="info">Address Info</TabsTrigger>
+            <TabsTrigger value="info">{t("addressInfo")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="transactions">
             <Card>
               <CardHeader>
-                <CardTitle>Transaction History</CardTitle>
-                <CardDescription>Newest transactions returned by the live indexer</CardDescription>
+                <CardTitle>{t("transactionHistory")}</CardTitle>
+                <CardDescription>{t("newestTransactions")}</CardDescription>
               </CardHeader>
               <CardContent>
                 {addressDetail.transactions.length === 0 && (
                   <p className="py-8 text-center text-sm text-muted-foreground">
-                    Transaction history is temporarily unavailable. Address totals above are current.
+                    {t("historyUnavailable")}
                   </p>
                 )}
                 <div className="space-y-4">
@@ -335,8 +337,8 @@ export default function AddressPage() {
                           </Button>
                           <div className="text-xs text-muted-foreground">
                             {tx.blockHeight > 0
-                              ? `Block #${tx.blockHeight.toLocaleString()} • ${formatDistanceToNow(new Date(tx.timestamp), { addSuffix: true })}`
-                              : "Unconfirmed"}
+                              ? `${t("block")} #${tx.blockHeight.toLocaleString(locale)} • ${formatDistanceToNow(new Date(tx.timestamp), { addSuffix: true, locale: dateLocale })}`
+                              : t("unconfirmed")}
                           </div>
                         </div>
                       </div>
@@ -346,7 +348,7 @@ export default function AddressPage() {
                           {tx.amount} BTC
                         </div>
                         <Badge variant={tx.confirmations === 0 ? "secondary" : "default"} className="text-xs">
-                          {tx.confirmations === 0 ? "Unconfirmed" : `${tx.confirmations} conf`}
+                          {tx.confirmations === 0 ? t("unconfirmed") : `${tx.confirmations} conf`}
                         </Badge>
                       </div>
                     </div>
@@ -354,12 +356,12 @@ export default function AddressPage() {
                   {hasMoreTransactions && (
                     <div className="pt-2 text-center">
                       <Button variant="outline" onClick={loadMoreTransactions} disabled={loadingMore}>
-                        {loadingMore && <Loader className="mr-2" size="sm" label="Loading more transactions" />}
-                        Load 25 older transactions
+                        {loadingMore && <Loader className="mr-2" size="sm" label={t("unableMoreTransactions")} />}
+                        {t("loadOlderTransactions")}
                       </Button>
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Showing {addressDetail.transactions.length.toLocaleString()} of{" "}
-                        {addressDetail.transactionCount.toLocaleString()}
+                        {t("showing")} {addressDetail.transactions.length.toLocaleString(locale)} {t("of")}{" "}
+                        {addressDetail.transactionCount.toLocaleString(locale)}
                       </p>
                     </div>
                   )}
@@ -373,21 +375,21 @@ export default function AddressPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <PublicIcon name="coins" className="size-5" />
-                  Unspent Transaction Outputs
+                  {t("unspentOutputs")}
                 </CardTitle>
                 <CardDescription>
-                  {addressDetail.utxos.length.toLocaleString()} spendable output{addressDetail.utxos.length === 1 ? "" : "s"} ·{" "}
-                  {satsToBtc(utxoTotal)} BTC total
+                  {addressDetail.utxos.length.toLocaleString(locale)} {addressDetail.utxos.length === 1 ? t("spendableOutput") : t("spendableOutputs")} ·{" "}
+                  {satsToBtc(utxoTotal)} {t("btcTotal")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {!addressDetail.utxosAvailable ? (
                   <p className="py-8 text-center text-sm text-muted-foreground">
-                    The UTXO index is temporarily unavailable. Please try again shortly.
+                    {t("utxoUnavailable")}
                   </p>
                 ) : addressDetail.utxos.length === 0 ? (
                   <p className="py-8 text-center text-sm text-muted-foreground">
-                    This address has no unspent outputs.
+                    {t("noUtxos")}
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -410,16 +412,16 @@ export default function AddressPage() {
                               </Button>
                               <p className="mt-1 text-xs text-muted-foreground">
                                 {utxo.status.block_height
-                                  ? `Block #${utxo.status.block_height.toLocaleString()}`
-                                  : "Unconfirmed output"}
+                                  ? `${t("block")} #${utxo.status.block_height.toLocaleString(locale)}`
+                                  : t("unconfirmedOutput")}
                               </p>
                             </div>
                             <div className="shrink-0 text-left sm:text-right">
                               <p className="font-medium">{satsToBtc(utxo.value)} BTC</p>
                               <Badge variant={confirmations > 0 ? "default" : "secondary"} className="mt-1 text-xs">
                                 {confirmations > 0
-                                  ? `${confirmations.toLocaleString()} confirmation${confirmations === 1 ? "" : "s"}`
-                                  : utxo.status.confirmed ? "Confirmed" : "Unconfirmed"}
+                                  ? `${confirmations.toLocaleString(locale)} conf`
+                                  : utxo.status.confirmed ? t("confirmed") : t("unconfirmed")}
                               </Badge>
                             </div>
                           </div>
@@ -432,10 +434,10 @@ export default function AddressPage() {
                           variant="outline"
                           onClick={() => setVisibleUtxos((count) => Math.min(count + 50, addressDetail.utxos.length))}
                         >
-                          Show 50 more UTXOs
+                          {t("showMoreUtxos")}
                         </Button>
                         <p className="mt-2 text-xs text-muted-foreground">
-                          Showing {shownUtxos.length.toLocaleString()} of {addressDetail.utxos.length.toLocaleString()}
+                          {t("showing")} {shownUtxos.length.toLocaleString(locale)} {t("of")} {addressDetail.utxos.length.toLocaleString(locale)}
                         </p>
                       </div>
                     )}
@@ -448,35 +450,35 @@ export default function AddressPage() {
           <TabsContent value="info">
             <Card>
               <CardHeader>
-                <CardTitle>Address Information</CardTitle>
-                <CardDescription>Detailed information about this address</CardDescription>
+                <CardTitle>{t("addressInfo")}</CardTitle>
+                <CardDescription>{t("detailedAddressInfo")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Address</label>
+                    <label className="text-sm font-medium text-muted-foreground">{t("address")}</label>
                     <div className="font-mono text-sm bg-muted p-2 rounded break-all">{addressDetail.address}</div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Address Type</label>
+                    <label className="text-sm font-medium text-muted-foreground">{t("addressType")}</label>
                     <div className="text-sm">
                       {getAddressType(addressDetail.address)}
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Oldest confirmed shown</label>
+                    <label className="text-sm font-medium text-muted-foreground">{t("oldestConfirmedShown")}</label>
                     <div className="text-sm">
                       {confirmedTransactions.length > 0
-                        ? formatDistanceToNow(new Date(confirmedTransactions.at(-1)!.timestamp), { addSuffix: true })
-                        : "No confirmed transactions shown"}
+                        ? formatDistanceToNow(new Date(confirmedTransactions.at(-1)!.timestamp), { addSuffix: true, locale: dateLocale })
+                        : t("noConfirmedShown")}
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Latest confirmed shown</label>
+                    <label className="text-sm font-medium text-muted-foreground">{t("latestConfirmedShown")}</label>
                     <div className="text-sm">
                       {confirmedTransactions.length > 0
-                        ? formatDistanceToNow(new Date(confirmedTransactions[0].timestamp), { addSuffix: true })
-                        : "No confirmed transactions shown"}
+                        ? formatDistanceToNow(new Date(confirmedTransactions[0].timestamp), { addSuffix: true, locale: dateLocale })
+                        : t("noConfirmedShown")}
                     </div>
                   </div>
                 </div>
