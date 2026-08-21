@@ -1,8 +1,8 @@
 "use client"
 
 import { PointerEvent, useCallback, useEffect, useRef, useState } from "react"
-import { Info } from "lucide-react"
 
+import { PublicIcon } from "@/components/public-icon"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -337,7 +337,7 @@ export function MempoolCanvas() {
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]">
-                <Info aria-hidden="true" />
+                <PublicIcon name="info" />
                 About this graph
               </Button>
             </DialogTrigger>

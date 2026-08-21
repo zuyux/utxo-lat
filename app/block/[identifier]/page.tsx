@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Copy, ExternalLink, ChevronLeft, ChevronRight, Blocks, Clock, Users, HardDrive, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
+import { Loader } from "@/components/loader"
+import { PublicIcon } from "@/components/public-icon"
 import { apiFetch, apiFetchText, type BlockApi, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
 
 interface BlockTransaction {
@@ -38,7 +39,7 @@ interface BlockDetail {
   size: number
   weight: number
   transactionCount: number
-  totalFees: string
+  totalFees: string | null
   blockReward: string
   medianFeeRate: number | null
   averageFeeRate: number | null
@@ -49,6 +50,17 @@ interface BlockDetail {
   miner: string
   confirmations: number
   transactions: BlockTransaction[]
+}
+
+const HALVING_INTERVAL = 210_000
+const INITIAL_BLOCK_SUBSIDY = 5_000_000_000
+
+const formatShortHashEnd = (hash: string) => hash ? `...${hash.slice(-16)}` : "Unavailable"
+
+const blockSubsidy = (height: number) => {
+  const halvings = Math.floor(height / HALVING_INTERVAL)
+  if (halvings >= 64) return 0
+  return Math.floor(INITIAL_BLOCK_SUBSIDY / 2 ** halvings)
 }
 
 const mapTransaction = (tx: MempoolTransaction): BlockTransaction => {
@@ -88,8 +100,8 @@ const fetchBlockDetail = async (identifier: string): Promise<BlockDetail> => {
     ...baseBlock,
     extras: detailedBlock?.extras ?? baseBlock.extras,
   }
-  const totalFees = block.extras?.totalFees ?? 0
-  const reward = block.extras?.reward ?? 0
+  const totalFees = block.extras?.totalFees
+  const subsidy = block.extras?.reward ?? blockSubsidy(block.height)
   return {
     height: block.height,
     hash: block.id,
@@ -103,10 +115,10 @@ const fetchBlockDetail = async (identifier: string): Promise<BlockDetail> => {
     size: block.size,
     weight: block.weight,
     transactionCount: block.tx_count,
-    totalFees: satsToBtc(totalFees),
-    blockReward: satsToBtc(Math.max(0, reward - totalFees)),
+    totalFees: totalFees != null ? satsToBtc(totalFees) : null,
+    blockReward: satsToBtc(subsidy),
     medianFeeRate: block.extras?.medianFee ?? null,
-    averageFeeRate: totalFees > 0
+    averageFeeRate: totalFees != null && totalFees > 0
       ? totalFees / (block.extras?.virtualSize ?? block.weight / 4)
       : null,
     feeRange: block.extras?.feeRange ?? [],
@@ -185,7 +197,7 @@ export default function BlockPage() {
         <header className="border-b">
           <div className="container mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => router.back()}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
               Back
             </Button>
           </div>
@@ -193,7 +205,7 @@ export default function BlockPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <Loader className="mx-auto mb-4" label="Loading block details" />
               <p className="text-muted-foreground">Loading block details...</p>
             </div>
           </div>
@@ -208,7 +220,7 @@ export default function BlockPage() {
         <header className="border-b">
           <div className="container mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => router.back()}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
               Back
             </Button>
           </div>
@@ -229,7 +241,7 @@ export default function BlockPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Button variant="ghost" onClick={() => router.back()}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
               Back
             </Button>
             <div className="flex items-center gap-2">
@@ -239,7 +251,7 @@ export default function BlockPage() {
                 onClick={() => navigateToBlock(block.height - 1)}
                 disabled={block.height <= 1}
               >
-                <ChevronLeft className="w-4 h-4 mr-1" />
+                <PublicIcon name="chevronLeft" className="mr-1 h-4 w-4" />
                 Previous
               </Button>
               <Button
@@ -249,7 +261,7 @@ export default function BlockPage() {
                 disabled={!block.nextBlockHash}
               >
                 Next
-                <ChevronRight className="w-4 h-4 ml-1" />
+                <PublicIcon name="chevronRight" className="ml-1 h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -259,13 +271,13 @@ export default function BlockPage() {
       <div className="container mx-auto px-4 py-6">
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
-            <Blocks className="w-6 h-6" />
+            <PublicIcon name="blocks" className="h-6 w-6" />
             <h1 className="text-3xl font-bold">Block #{block.height.toLocaleString()}</h1>
           </div>
           <div className="flex items-center gap-2">
             <code className="text-sm bg-muted px-2 py-1 rounded break-all">{block.hash}</code>
             <Button variant="ghost" size="sm" onClick={() => copyToClipboard(block.hash)}>
-              <Copy className="w-4 h-4" />
+              <PublicIcon name="copy" className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -285,7 +297,7 @@ export default function BlockPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Transactions</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <PublicIcon name="miner-users" className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{block.transactionCount.toLocaleString()}</div>
@@ -296,7 +308,7 @@ export default function BlockPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Block Size</CardTitle>
-              <HardDrive className="h-4 w-4 text-muted-foreground" />
+              <PublicIcon name="hard-drive" className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{(block.size / 1000000).toFixed(2)} MB</div>
@@ -307,7 +319,7 @@ export default function BlockPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Timestamp</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
+              <PublicIcon name="clock" className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-lg font-bold">
@@ -350,7 +362,7 @@ export default function BlockPage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Total Fees</span>
-                    <span className="font-medium">{block.totalFees} BTC</span>
+                    <span className="font-medium">{block.totalFees ? `${block.totalFees} BTC` : "Unavailable"}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -368,8 +380,8 @@ export default function BlockPage() {
                       onClick={() => navigateToBlock(block.height - 1)}
                       disabled={block.height <= 1}
                     >
-                      {block.previousBlockHash.substring(0, 16)}...
-                      <ExternalLink className="w-3 h-3 ml-2" />
+                      {formatShortHashEnd(block.previousBlockHash)}
+                      <PublicIcon name="externalLink" className="ml-2 h-3 w-3" />
                     </Button>
                   </div>
                   {block.nextBlockHash && (
@@ -381,7 +393,7 @@ export default function BlockPage() {
                         onClick={() => navigateToBlock(block.height + 1)}
                       >
                         {block.nextBlockHash.substring(0, 16)}...
-                        <ExternalLink className="w-3 h-3 ml-2" />
+                        <PublicIcon name="externalLink" className="ml-2 h-3 w-3" />
                       </Button>
                     </div>
                   )}
@@ -476,10 +488,10 @@ export default function BlockPage() {
                         </div>
                         <div className="flex shrink-0 gap-1">
                           <Button variant="ghost" size="icon" className="size-8" onClick={() => copyToClipboard(tx.txid)} aria-label="Copy transaction ID">
-                            <Copy className="size-3.5" />
+                            <PublicIcon name="copy" className="size-3.5" />
                           </Button>
                           <Button variant="outline" size="sm" onClick={() => router.push(`/tx/${tx.txid}`)}>
-                            Details <ExternalLink className="ml-1.5 size-3.5" />
+                            Details <PublicIcon name="externalLink" className="ml-1.5 size-3.5" />
                           </Button>
                         </div>
                       </div>
@@ -500,7 +512,7 @@ export default function BlockPage() {
                   {block.transactions.length < block.transactionCount && (
                     <div className="pt-2 text-center">
                       <Button variant="outline" onClick={loadMoreTransactions} disabled={loadingMore}>
-                        {loadingMore && <Loader2 className="mr-2 size-4 animate-spin" />}
+                        {loadingMore && <Loader className="mr-2" size="sm" label="Loading more transactions" />}
                         Load 25 more
                       </Button>
                       <p className="mt-2 text-xs text-muted-foreground">
@@ -526,7 +538,7 @@ export default function BlockPage() {
                     <div className="font-mono text-sm bg-muted p-2 rounded break-all flex items-center justify-between">
                       {block.hash}
                       <Button variant="ghost" size="sm" onClick={() => copyToClipboard(block.hash)}>
-                        <Copy className="w-3 h-3" />
+                        <PublicIcon name="copy" className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
@@ -535,7 +547,7 @@ export default function BlockPage() {
                     <div className="font-mono text-sm bg-muted p-2 rounded break-all flex items-center justify-between">
                       {block.merkleRoot}
                       <Button variant="ghost" size="sm" onClick={() => copyToClipboard(block.merkleRoot)}>
-                        <Copy className="w-3 h-3" />
+                        <PublicIcon name="copy" className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>

@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { Activity, Clock, Zap, TrendingUp } from "lucide-react"
+import { PublicIcon } from "@/components/public-icon"
 
 interface MempoolStatsProps {
   mempoolSize: number
@@ -32,7 +32,7 @@ export function MempoolStats({ mempoolSize, avgFee, transactions }: MempoolStats
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Activity className="w-4 h-4" />
+            <PublicIcon name="status" className="h-4 w-4" />
             Mempool Overview
           </CardTitle>
           <CardDescription>Current state of unconfirmed transactions</CardDescription>
@@ -63,7 +63,7 @@ export function MempoolStats({ mempoolSize, avgFee, transactions }: MempoolStats
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Zap className="w-4 h-4" />
+            <PublicIcon name="flash" className="h-4 w-4" />
             Fee Distribution
           </CardTitle>
           <CardDescription>Transaction fees by priority level</CardDescription>
@@ -93,7 +93,7 @@ export function MempoolStats({ mempoolSize, avgFee, transactions }: MempoolStats
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4" />
+            <PublicIcon name="trendingUp" className="h-4 w-4" />
             Fee Recommendations
           </CardTitle>
           <CardDescription>Estimated confirmation times</CardDescription>
@@ -129,7 +129,7 @@ export function MempoolStats({ mempoolSize, avgFee, transactions }: MempoolStats
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Clock className="w-4 h-4" />
+            <PublicIcon name="clock" className="h-4 w-4" />
             Unconfirmed Transactions
           </CardTitle>
           <CardDescription>Transactions waiting for confirmation</CardDescription>

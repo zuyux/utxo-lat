@@ -1,8 +1,9 @@
 "use client"
 
 import { formatDistanceToNow } from "date-fns"
-import { ChevronRight } from "lucide-react"
 import { useRouter } from "next/navigation"
+
+import { PublicIcon } from "@/components/public-icon"
 
 interface Block {
   height: number
@@ -51,7 +52,7 @@ export function BlockList({ blocks, detailed = false }: BlockListProps) {
             <span className="whitespace-nowrap">
               {formatDistanceToNow(new Date(block.timestamp), { addSuffix: true })}
             </span>
-            <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+            <PublicIcon name="chevronRight" className="size-4 transition-transform group-hover:translate-x-0.5" />
           </div>
         </button>
       ))}

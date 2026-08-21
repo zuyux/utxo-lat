@@ -1,8 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { ArrowUpDown } from "lucide-react"
 
+import { PublicIcon } from "@/components/public-icon"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -210,7 +210,7 @@ export function CurrencyConverter() {
             />
           </div>
           <div className="flex size-9 items-center justify-center text-muted-foreground">
-            <ArrowUpDown className="size-4" />
+            <PublicIcon name="arrow-right" className="size-4 rotate-90" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="fiat-amount">{selectedCurrency}</Label>

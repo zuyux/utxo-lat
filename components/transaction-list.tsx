@@ -1,7 +1,7 @@
 "use client"
 
+import { PublicIcon } from "@/components/public-icon"
 import { Badge } from "@/components/ui/badge"
-import { ArrowUpRight, Clock } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 
 interface Transaction {
@@ -26,14 +26,14 @@ export function TransactionList({ transactions }: TransactionListProps) {
         >
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-              <ArrowUpRight className="w-4 h-4 text-blue-600" />
+              <PublicIcon name="sent" className="h-4 w-4 text-blue-600" />
             </div>
             <div>
               <div className="font-mono text-sm font-medium">
                 {tx.hash.substring(0, 8)}...{tx.hash.substring(tx.hash.length - 8)}
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Clock className="w-3 h-3" />
+                <PublicIcon name="clock" className="h-3 w-3" />
                 {formatDistanceToNow(new Date(tx.timestamp), { addSuffix: true })}
               </div>
             </div>

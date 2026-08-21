@@ -6,9 +6,9 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search } from "lucide-react"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/mempool"
+import { PublicIcon } from "@/components/public-icon"
 
 export function SearchBar() {
   const [query, setQuery] = useState("")
@@ -51,7 +51,7 @@ export function SearchBar() {
         className="h-10 flex-1"
       />
       <Button type="submit" size="icon" className="size-10 shrink-0" aria-label="Search">
-        <Search className="size-4" />
+        <PublicIcon name="search" className="size-4" />
       </Button>
     </form>
   )

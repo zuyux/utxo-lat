@@ -5,6 +5,7 @@ import Link from "next/link"
 
 import { BlockList } from "@/components/block-list"
 import { CurrencyConverter } from "@/components/currency-converter"
+import { Loader } from "@/components/loader"
 import { MempoolCanvas } from "@/components/mempool-canvas"
 import { NetworkStatus } from "@/components/network-status"
 import { SearchBar } from "@/components/search-bar"
@@ -44,7 +45,7 @@ export default function BitcoinExplorer() {
       <header className="border-b">
         <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
           <Link href="/" className="font-semibold tracking-tight">
-            utxo.watch
+            utxo.lat
           </Link>
 
           <div className="flex items-center gap-1">
@@ -78,7 +79,12 @@ export default function BitcoinExplorer() {
 
           <Separator />
           {error && <p className="py-6 text-sm text-destructive">{error}. Please try again shortly.</p>}
-          {!error && blocks.length === 0 && <p className="py-6 text-sm text-muted-foreground">Loading live blocks…</p>}
+          {!error && blocks.length === 0 && (
+            <div className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
+              <Loader size="sm" label="Loading live blocks" />
+              <span>Loading live blocks…</span>
+            </div>
+          )}
           <BlockList blocks={blocks} />
         </section>
 

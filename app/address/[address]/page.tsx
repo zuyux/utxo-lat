@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Copy, ExternalLink, TrendingUp, TrendingDown, Wallet, Coins, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
+import { Loader } from "@/components/loader"
+import { PublicIcon } from "@/components/public-icon"
 import { apiFetch, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
 
 interface AddressTransaction {
@@ -176,7 +177,7 @@ export default function AddressPage() {
         <header className="border-b">
           <div className="container mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => router.back()}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
               Back
             </Button>
           </div>
@@ -184,7 +185,7 @@ export default function AddressPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <Loader className="mx-auto mb-4" label="Loading address details" />
               <p className="text-muted-foreground">Loading address details...</p>
             </div>
           </div>
@@ -199,7 +200,7 @@ export default function AddressPage() {
         <header className="border-b">
           <div className="container mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => router.back()}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
               Back
             </Button>
           </div>
@@ -223,7 +224,7 @@ export default function AddressPage() {
       <header className="border-b">
         <div className="container mx-auto px-4 py-4">
           <Button variant="ghost" onClick={() => router.back()}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
+            <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
             Back
           </Button>
         </div>
@@ -235,7 +236,7 @@ export default function AddressPage() {
           <div className="flex items-center gap-2">
             <code className="text-sm bg-muted px-2 py-1 rounded break-all">{addressDetail.address}</code>
             <Button variant="ghost" size="sm" onClick={() => copyToClipboard(addressDetail.address)}>
-              <Copy className="w-4 h-4" />
+              <PublicIcon name="copy" className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -244,7 +245,7 @@ export default function AddressPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Balance</CardTitle>
-              <Wallet className="h-4 w-4 text-muted-foreground" />
+              <PublicIcon name="wallet" className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{addressDetail.balance} BTC</div>
@@ -255,7 +256,7 @@ export default function AddressPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Received</CardTitle>
-              <TrendingDown className="h-4 w-4 text-green-600" />
+              <PublicIcon name="received" className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{addressDetail.totalReceived} BTC</div>
@@ -266,7 +267,7 @@ export default function AddressPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Sent</CardTitle>
-              <TrendingUp className="h-4 w-4 text-red-600" />
+              <PublicIcon name="sent" className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">{addressDetail.totalSent} BTC</div>
@@ -277,7 +278,7 @@ export default function AddressPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Transactions</CardTitle>
-              <ExternalLink className="h-4 w-4 text-muted-foreground" />
+              <PublicIcon name="externalLink" className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{addressDetail.transactionCount}</div>
@@ -318,9 +319,9 @@ export default function AddressPage() {
                           }`}
                         >
                           {tx.type === "received" ? (
-                            <TrendingDown className="w-4 h-4 text-green-600" />
+                            <PublicIcon name="received" className="h-4 w-4 text-green-600" />
                           ) : (
-                            <TrendingUp className="w-4 h-4 text-red-600" />
+                            <PublicIcon name="sent" className="h-4 w-4 text-red-600" />
                           )}
                         </div>
                         <div>
@@ -330,7 +331,7 @@ export default function AddressPage() {
                             onClick={() => router.push(`/tx/${tx.txid}`)}
                           >
                             {tx.txid.substring(0, 16)}...
-                            <ExternalLink className="w-3 h-3 ml-1" />
+                            <PublicIcon name="externalLink" className="ml-1 h-3 w-3" />
                           </Button>
                           <div className="text-xs text-muted-foreground">
                             {tx.blockHeight > 0
@@ -353,7 +354,7 @@ export default function AddressPage() {
                   {hasMoreTransactions && (
                     <div className="pt-2 text-center">
                       <Button variant="outline" onClick={loadMoreTransactions} disabled={loadingMore}>
-                        {loadingMore && <Loader2 className="mr-2 size-4 animate-spin" />}
+                        {loadingMore && <Loader className="mr-2" size="sm" label="Loading more transactions" />}
                         Load 25 older transactions
                       </Button>
                       <p className="mt-2 text-xs text-muted-foreground">
@@ -371,7 +372,7 @@ export default function AddressPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Coins className="size-5" />
+                  <PublicIcon name="coins" className="size-5" />
                   Unspent Transaction Outputs
                 </CardTitle>
                 <CardDescription>
@@ -405,7 +406,7 @@ export default function AddressPage() {
                                 onClick={() => router.push(`/tx/${utxo.txid}`)}
                               >
                                 <span className="break-all">{utxo.txid}:{utxo.vout}</span>
-                                <ExternalLink className="ml-1.5 size-3 shrink-0" />
+                                <PublicIcon name="externalLink" className="ml-1.5 size-3 shrink-0" />
                               </Button>
                               <p className="mt-1 text-xs text-muted-foreground">
                                 {utxo.status.block_height

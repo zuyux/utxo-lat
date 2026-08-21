@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Copy } from "lucide-react"
 import { toast } from "sonner"
 
+import { Loader } from "@/components/loader"
+import { PublicIcon } from "@/components/public-icon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -131,7 +132,7 @@ export default function TransactionPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="container mx-auto px-4 py-4">
-          <Button variant="ghost" onClick={() => router.back()}><ArrowLeft className="mr-2 size-4" />Back</Button>
+          <Button variant="ghost" onClick={() => router.back()}><PublicIcon name="arrow-left" className="mr-2 size-4" />Back</Button>
         </div>
       </header>
 
@@ -140,7 +141,7 @@ export default function TransactionPage() {
           <h1 className="mb-2 text-3xl font-bold">Transaction Details</h1>
           <div className="flex items-center gap-2">
             <code className="min-w-0 break-all rounded bg-muted px-2 py-1 text-sm">{transaction.txid}</code>
-            <Button variant="ghost" size="sm" onClick={() => copy(transaction.txid)} aria-label="Copy transaction ID"><Copy className="size-4" /></Button>
+            <Button variant="ghost" size="sm" onClick={() => copy(transaction.txid)} aria-label="Copy transaction ID"><PublicIcon name="copy" className="size-4" /></Button>
           </div>
         </div>
 
@@ -282,7 +283,7 @@ export default function TransactionPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><ArrowDownLeft className="size-4" />Inputs ({transaction.vin.length})</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><PublicIcon name="received" className="size-4" />Inputs ({transaction.vin.length})</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               {transaction.vin.map((input, index) => (
                 <div key={`${input.txid}-${input.vout}-${index}`} className="rounded-lg border p-4">
@@ -312,7 +313,7 @@ export default function TransactionPage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><ArrowUpRight className="size-4" />Outputs ({transaction.vout.length})</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><PublicIcon name="sent" className="size-4" />Outputs ({transaction.vout.length})</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               {transaction.vout.map((output, index) => (
                 <div key={`${output.scriptpubkey}-${index}`} className="rounded-lg border p-4">
@@ -456,9 +457,10 @@ function decodeOpReturn(scriptHex: string) {
 function PageMessage({ onBack, title, message }: { onBack: () => void; title?: string; message: string }) {
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b"><div className="container mx-auto px-4 py-4"><Button variant="ghost" onClick={onBack}><ArrowLeft className="mr-2 size-4" />Back</Button></div></header>
+      <header className="border-b"><div className="container mx-auto px-4 py-4"><Button variant="ghost" onClick={onBack}><PublicIcon name="arrow-left" className="mr-2 size-4" />Back</Button></div></header>
       <main className="container mx-auto px-4 py-20 text-center">
         {title && <h1 className="mb-3 text-2xl font-bold">{title}</h1>}
+        {!title && <Loader className="mx-auto mb-4" label={message} />}
         <p className="text-muted-foreground">{message}</p>
       </main>
     </div>
