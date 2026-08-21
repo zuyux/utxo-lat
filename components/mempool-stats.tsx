@@ -20,9 +20,9 @@ interface MempoolStatsProps {
 export function MempoolStats({ mempoolSize, avgFee, transactions }: MempoolStatsProps) {
   const unconfirmedTxs = transactions.filter((tx) => tx.confirmations === 0)
   const feeRanges = [
-    { label: "Low Priority", range: "1-5 sat/vB", percentage: 25, color: "bg-red-500" },
+    { label: "Low Priority", range: "1-5 sat/vB", percentage: 25, color: "bg-[#ff1744]" },
     { label: "Medium Priority", range: "6-20 sat/vB", percentage: 45, color: "bg-yellow-500" },
-    { label: "High Priority", range: "21-50 sat/vB", percentage: 25, color: "bg-green-500" },
+    { label: "High Priority", range: "21-50 sat/vB", percentage: 25, color: "bg-[#00e5ff]" },
     { label: "Very High Priority", range: "50+ sat/vB", percentage: 5, color: "bg-blue-500" },
   ]
 
@@ -44,7 +44,7 @@ export function MempoolStats({ mempoolSize, avgFee, transactions }: MempoolStats
               <div className="text-sm text-muted-foreground">Total Transactions</div>
             </div>
             <div className="text-center p-4 border rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{avgFee.toFixed(1)}</div>
+              <div className="text-2xl font-bold text-[#00e5ff]">{avgFee.toFixed(1)}</div>
               <div className="text-sm text-muted-foreground">Avg Fee (sat/vB)</div>
             </div>
           </div>
@@ -105,7 +105,7 @@ export function MempoolStats({ mempoolSize, avgFee, transactions }: MempoolStats
                 <div className="font-medium">Next Block</div>
                 <div className="text-sm text-muted-foreground">~10 minutes</div>
               </div>
-              <Badge className="bg-green-100 text-green-800">{Math.ceil(avgFee)} sat/vB</Badge>
+              <Badge className="bg-[#00e5ff]/15 text-[#00e5ff]">{Math.ceil(avgFee)} sat/vB</Badge>
             </div>
             <div className="flex justify-between items-center p-3 border rounded-lg">
               <div>

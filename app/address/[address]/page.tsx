@@ -258,10 +258,10 @@ export default function AddressPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("totalReceived")}</CardTitle>
-              <PublicIcon name="received" className="h-4 w-4 text-green-600" />
+              <PublicIcon name="received" className="h-4 w-4 text-[#00e5ff]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{addressDetail.totalReceived} BTC</div>
+              <div className="text-2xl font-bold text-[#00e5ff]">{addressDetail.totalReceived} BTC</div>
               <p className="text-xs text-muted-foreground">{t("allTimeReceived")}</p>
             </CardContent>
           </Card>
@@ -269,10 +269,10 @@ export default function AddressPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("totalSent")}</CardTitle>
-              <PublicIcon name="sent" className="h-4 w-4 text-red-600" />
+              <PublicIcon name="sent" className="h-4 w-4 text-[#ff1744]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{addressDetail.totalSent} BTC</div>
+              <div className="text-2xl font-bold text-[#ff1744]">{addressDetail.totalSent} BTC</div>
               <p className="text-xs text-muted-foreground">{t("allTimeSent")}</p>
             </CardContent>
           </Card>
@@ -317,13 +317,13 @@ export default function AddressPage() {
                       <div className="flex items-center gap-3">
                         <div
                           className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            tx.type === "received" ? "bg-green-100" : "bg-red-100"
+                            tx.type === "received" ? "bg-[#00e5ff]/15" : "bg-[#ff1744]/15"
                           }`}
                         >
                           {tx.type === "received" ? (
-                            <PublicIcon name="received" className="h-4 w-4 text-green-600" />
+                            <PublicIcon name="received" className="h-4 w-4 text-[#00e5ff]" />
                           ) : (
-                            <PublicIcon name="sent" className="h-4 w-4 text-red-600" />
+                            <PublicIcon name="sent" className="h-4 w-4 text-[#ff1744]" />
                           )}
                         </div>
                         <div>
@@ -343,7 +343,7 @@ export default function AddressPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className={`font-medium ${tx.type === "received" ? "text-green-600" : "text-red-600"}`}>
+                        <div className={`font-medium ${tx.type === "received" ? "text-[#00e5ff]" : "text-[#ff1744]"}`}>
                           {tx.type === "received" ? "+" : "-"}
                           {tx.amount} BTC
                         </div>

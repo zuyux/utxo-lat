@@ -72,8 +72,8 @@ export default function BitcoinExplorer() {
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-60" />
-                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#00e5ff] opacity-60" />
+                <span className="relative inline-flex size-2 rounded-full bg-[#00e5ff]" />
               </span>
               {t("liveRefresh30")}
             </div>

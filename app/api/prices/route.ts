@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 
-export const dynamic = "force-dynamic"
+import { currencyCodes } from "@/lib/currencies"
 
-const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "CHF", "AUD", "JPY", "PEN", "ARS"] as const
+export const dynamic = "force-dynamic"
 
 interface CoinbaseResponse {
   data?: {
@@ -24,7 +24,7 @@ export async function GET() {
     const rates = payload.data?.rates
     if (payload.data?.currency !== "BTC" || !rates) throw new Error("Invalid price response")
 
-    const prices = Object.fromEntries(CURRENCIES.map((currency) => {
+    const prices = Object.fromEntries(currencyCodes.map((currency) => {
       const price = Number(rates[currency])
       if (!Number.isFinite(price)) throw new Error(`Missing ${currency} rate`)
       return [currency, price]

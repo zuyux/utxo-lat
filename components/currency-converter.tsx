@@ -15,20 +15,9 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { currencies, type CurrencyCode } from "@/lib/currencies"
 import { useLanguage } from "@/lib/i18n"
-const currencies = [
-  { code: "USD", name: "US Dollar", symbol: "$" },
-  { code: "EUR", name: "Euro", symbol: "€" },
-  { code: "GBP", name: "British Pound", symbol: "£" },
-  { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
-  { code: "CHF", name: "Swiss Franc", symbol: "CHF " },
-  { code: "AUD", name: "Australian Dollar", symbol: "A$" },
-  { code: "JPY", name: "Japanese Yen", symbol: "¥" },
-  { code: "PEN", name: "Peruvian Sol", symbol: "S/" },
-  { code: "ARS", name: "Argentinian Peso", symbol: "$" },
-] as const
 
-type CurrencyCode = (typeof currencies)[number]["code"]
 type BitcoinUnit = "BTC" | "SAT"
 type PriceResponse = { time: number; source: string } & Record<CurrencyCode, number>
 
@@ -64,6 +53,7 @@ export function CurrencyConverter() {
   const [bitcoinUnit, setBitcoinUnit] = useState<BitcoinUnit>("BTC")
   const [bitcoinAmount, setBitcoinAmount] = useState("1")
   const [fiatAmount, setFiatAmount] = useState("")
+  const [currencySearch, setCurrencySearch] = useState("")
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -147,6 +137,14 @@ export function CurrencyConverter() {
   }
 
   const selectedPrice = prices?.[selectedCurrency]
+  const normalizedCurrencySearch = currencySearch.trim().toLowerCase()
+  const filteredCurrencies = normalizedCurrencySearch
+    ? currencies.filter((currency) => (
+      currency.code.toLowerCase().includes(normalizedCurrencySearch)
+        || currency.name.toLowerCase().includes(normalizedCurrencySearch)
+        || currency.symbol.toLowerCase().includes(normalizedCurrencySearch)
+    ))
+    : currencies
 
   return (
     <Dialog>
@@ -175,16 +173,28 @@ export function CurrencyConverter() {
 
         <div className="space-y-2">
           <Label htmlFor="converter-currency">{t("fiatCurrency")}</Label>
+          <Input
+            id="converter-currency-search"
+            type="search"
+            placeholder={t("searchCurrency")}
+            value={currencySearch}
+            onChange={(event) => setCurrencySearch(event.target.value)}
+          />
           <Select value={selectedCurrency} onValueChange={handleCurrencyChange}>
             <SelectTrigger id="converter-currency">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {currencies.map((currency) => (
+              {filteredCurrencies.map((currency) => (
                 <SelectItem key={currency.code} value={currency.code}>
                   {currency.symbol} {currency.code} · {currency.name}
                 </SelectItem>
               ))}
+              {filteredCurrencies.length === 0 && (
+                <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                  {t("noCurrenciesFound")}
+                </div>
+              )}
             </SelectContent>
           </Select>
         </div>

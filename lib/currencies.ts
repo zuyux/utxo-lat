@@ -1,0 +1,33 @@
+export const currencies = [
+  { code: "USD", name: "US Dollar", symbol: "$" },
+  { code: "EUR", name: "Euro", symbol: "EUR" },
+  { code: "GBP", name: "British Pound", symbol: "GBP" },
+  { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
+  { code: "CHF", name: "Swiss Franc", symbol: "CHF" },
+  { code: "AUD", name: "Australian Dollar", symbol: "A$" },
+  { code: "JPY", name: "Japanese Yen", symbol: "JPY" },
+  { code: "ARS", name: "Argentine Peso", symbol: "$" },
+  { code: "BOB", name: "Bolivian Boliviano", symbol: "Bs" },
+  { code: "BRL", name: "Brazilian Real", symbol: "R$" },
+  { code: "BZD", name: "Belize Dollar", symbol: "BZ$" },
+  { code: "CLP", name: "Chilean Peso", symbol: "$" },
+  { code: "COP", name: "Colombian Peso", symbol: "$" },
+  { code: "CRC", name: "Costa Rican Colon", symbol: "CRC" },
+  { code: "CUP", name: "Cuban Peso", symbol: "$" },
+  { code: "DOP", name: "Dominican Peso", symbol: "RD$" },
+  { code: "GTQ", name: "Guatemalan Quetzal", symbol: "Q" },
+  { code: "GYD", name: "Guyanese Dollar", symbol: "G$" },
+  { code: "HNL", name: "Honduran Lempira", symbol: "L" },
+  { code: "HTG", name: "Haitian Gourde", symbol: "G" },
+  { code: "MXN", name: "Mexican Peso", symbol: "$" },
+  { code: "NIO", name: "Nicaraguan Cordoba", symbol: "C$" },
+  { code: "PAB", name: "Panamanian Balboa", symbol: "B/." },
+  { code: "PEN", name: "Peruvian Sol", symbol: "S/" },
+  { code: "PYG", name: "Paraguayan Guarani", symbol: "Gs" },
+  { code: "SRD", name: "Surinamese Dollar", symbol: "SRD" },
+  { code: "UYU", name: "Uruguayan Peso", symbol: "$U" },
+  { code: "VES", name: "Venezuelan Bolivar", symbol: "Bs" },
+] as const
+
+export type CurrencyCode = (typeof currencies)[number]["code"]
+export const currencyCodes = currencies.map((currency) => currency.code)

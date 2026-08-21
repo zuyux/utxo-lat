@@ -3,9 +3,19 @@ import { NextRequest, NextResponse } from "next/server"
 export const dynamic = "force-dynamic"
 
 const MEMPOOL = process.env.MEMPOOL_API_URL?.replace(/\/$/, "") || "https://mempool.space/api"
+const SECONDARY_MEMPOOL = process.env.MEMPOOL_FALLBACK_API_URL?.replace(/\/$/, "") || "https://mempool.sethforprivacy.com/api"
 const BLOCKSTREAM = "https://blockstream.info/api"
 const DIFFICULTY_PERIOD = 2_016
 const TARGET_BLOCK_TIME_SECONDS = 600
+const STALE_FALLBACK_TTL = 5 * 60 * 1000
+
+interface CachedProviderResponse {
+  body: ArrayBuffer
+  contentType: string
+  storedAt: number
+}
+
+const responseCache = new Map<string, CachedProviderResponse>()
 
 interface ProviderRequest {
   base: string
@@ -19,6 +29,7 @@ function getProviders(path: string): ProviderRequest[] {
     return [
       { base: BLOCKSTREAM, path: "blocks" },
       { base: MEMPOOL, path },
+      { base: SECONDARY_MEMPOOL, path },
     ]
   }
 
@@ -26,6 +37,7 @@ function getProviders(path: string): ProviderRequest[] {
     return [
       { base: BLOCKSTREAM, path: path.replace(/^v1\//, "") },
       { base: MEMPOOL, path },
+      { base: SECONDARY_MEMPOOL, path },
     ]
   }
 
@@ -33,6 +45,7 @@ function getProviders(path: string): ProviderRequest[] {
     return [
       { base: BLOCKSTREAM, path: path.replace(/^v1\//, "") },
       { base: MEMPOOL, path },
+      { base: SECONDARY_MEMPOOL, path },
     ]
   }
 
@@ -40,7 +53,9 @@ function getProviders(path: string): ProviderRequest[] {
     return [
       { base: BLOCKSTREAM, path: "fee-estimates", transform: transformFeeEstimates },
       { base: MEMPOOL, path },
+      { base: SECONDARY_MEMPOOL, path },
       { base: MEMPOOL, path: "v1/fees/recommended" },
+      { base: SECONDARY_MEMPOOL, path: "v1/fees/recommended" },
     ]
   }
 
@@ -48,6 +63,7 @@ function getProviders(path: string): ProviderRequest[] {
     return [
       { base: BLOCKSTREAM, path },
       { base: MEMPOOL, path },
+      { base: SECONDARY_MEMPOOL, path },
     ]
   }
 
@@ -55,10 +71,14 @@ function getProviders(path: string): ProviderRequest[] {
     return [
       { base: BLOCKSTREAM, path },
       { base: MEMPOOL, path },
+      { base: SECONDARY_MEMPOOL, path },
     ]
   }
 
-  return [{ base: MEMPOOL, path }]
+  return [
+    { base: MEMPOOL, path },
+    { base: SECONDARY_MEMPOOL, path },
+  ]
 }
 
 interface EsploraBlock {
@@ -91,6 +111,55 @@ async function fetchBlockByHeight(height: number) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
+}
+
+function fallbackFeeRecommendations() {
+  return fallbackJson({
+    fastestFee: 10,
+    halfHourFee: 5,
+    hourFee: 3,
+    economyFee: 2,
+    minimumFee: 1,
+    fallback: true,
+  })
+}
+
+function fallbackJson(data: unknown) {
+  return NextResponse.json(data, {
+    headers: {
+      "Cache-Control": "no-store",
+      "X-Data-Source": "degraded-fallback",
+    },
+  })
+}
+
+function fallbackMempool() {
+  return fallbackJson({
+    count: 0,
+    vsize: 0,
+    total_fee: 0,
+    fee_histogram: [],
+    fallback: true,
+  })
+}
+
+function fallbackDifficultyAdjustmentStatic() {
+  return fallbackJson({
+    progressPercent: 0,
+    difficultyChange: 0,
+    estimatedRetargetDate: Date.now() + DIFFICULTY_PERIOD * TARGET_BLOCK_TIME_SECONDS * 1000,
+    remainingBlocks: DIFFICULTY_PERIOD,
+    remainingTime: DIFFICULTY_PERIOD * TARGET_BLOCK_TIME_SECONDS * 1000,
+    fallback: true,
+  })
+}
+
+function fallbackHashrateStatic() {
+  return fallbackJson({
+    currentHashrate: 0,
+    currentDifficulty: 0,
+    fallback: true,
+  })
 }
 
 async function transformFeeEstimates(response: Response) {
@@ -158,6 +227,24 @@ async function requestUpstream(provider: ProviderRequest, search: string) {
   })
 }
 
+function getCachedResponse(cacheKey: string) {
+  const cached = responseCache.get(cacheKey)
+  if (!cached) return null
+  if (Date.now() - cached.storedAt > STALE_FALLBACK_TTL) {
+    responseCache.delete(cacheKey)
+    return null
+  }
+
+  return new NextResponse(cached.body.slice(0), {
+    status: 200,
+    headers: {
+      "Content-Type": cached.contentType,
+      "Cache-Control": "no-store",
+      "X-Data-Source": "stale-fallback",
+    },
+  })
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
@@ -166,6 +253,7 @@ export async function GET(
   const path = pathParts.join("/")
   const search = request.nextUrl.search
   const providers = getProviders(path)
+  const cacheKey = `${path}${search}`
 
   let lastStatus = 502
   for (const provider of providers) {
@@ -177,10 +265,17 @@ export async function GET(
         continue
       }
       if (provider.transform) return provider.transform(response)
-      return new NextResponse(await response.arrayBuffer(), {
+      const body = await response.arrayBuffer()
+      const contentType = response.headers.get("content-type") || "application/json"
+      responseCache.set(cacheKey, {
+        body: body.slice(0),
+        contentType,
+        storedAt: Date.now(),
+      })
+      return new NextResponse(body, {
         status: response.status,
         headers: {
-          "Content-Type": response.headers.get("content-type") || "application/json",
+          "Content-Type": contentType,
           "Cache-Control": "no-store",
         },
       })
@@ -189,12 +284,21 @@ export async function GET(
     }
   }
 
+  const cachedResponse = getCachedResponse(cacheKey)
+  if (cachedResponse) return cachedResponse
+
   try {
+    if (path === "v1/fees/precise") return fallbackFeeRecommendations()
     if (path === "v1/difficulty-adjustment") return await fallbackDifficultyAdjustment()
     if (path === "v1/mining/hashrate/3d") return await fallbackHashrate()
   } catch {
-    // Return the same provider-unavailable shape below when derived fallbacks fail.
+    // Return endpoint-shaped degraded data below when derived fallbacks fail.
   }
+
+  if (path === "v1/blocks") return fallbackJson([])
+  if (path === "mempool") return fallbackMempool()
+  if (path === "v1/difficulty-adjustment") return fallbackDifficultyAdjustmentStatic()
+  if (path === "v1/mining/hashrate/3d") return fallbackHashrateStatic()
 
   return NextResponse.json(
     { error: lastStatus === 404 ? "Not found" : "Bitcoin data providers are unavailable" },

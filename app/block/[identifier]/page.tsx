@@ -394,7 +394,7 @@ export default function BlockPage() {
                         className="w-full justify-start font-mono text-xs bg-transparent"
                         onClick={() => navigateToBlock(block.height + 1)}
                       >
-                        {block.nextBlockHash.substring(0, 16)}...
+                        {formatShortHashEnd(block.nextBlockHash, t("unavailable"))}
                         <PublicIcon name="externalLink" className="ml-2 h-3 w-3" />
                       </Button>
                     </div>

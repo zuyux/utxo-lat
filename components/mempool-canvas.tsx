@@ -33,6 +33,7 @@ interface FeeRecommendations {
   hourFee: number
   economyFee: number
   minimumFee: number
+  fallback?: boolean
 }
 
 interface Cell {
@@ -47,7 +48,7 @@ interface HoveredCell extends Cell {
   y: number
 }
 
-const colors = ["#fb7185", "#fbbf24", "#34d399", "#38bdf8"] as const
+const colors = ["#ff1744", "#fbbf24", "#00e5ff", "#38bdf8"] as const
 
 function makeCells(histogram: Array<[number, number]>, capacity: number) {
   const totalVsize = histogram.reduce((sum, [, vsize]) => sum + vsize, 0)
@@ -106,6 +107,32 @@ function formatFeeBand(cell: Cell) {
   if (cell.feeHigh === null) return `> ${formatFee(cell.feeLow)} sat/vB`
   if (cell.feeHigh === cell.feeLow) return `~ ${formatFee(cell.feeLow)} sat/vB`
   return `${formatFee(cell.feeLow)}–${formatFee(cell.feeHigh)} sat/vB`
+}
+
+function estimateFeesFromHistogram(stats: MempoolStats): FeeRecommendations {
+  const histogram = stats.fee_histogram
+  const feeAtDepth = (targetVsize: number, fallback: number) => {
+    let accumulated = 0
+    for (const [feeRate, vsize] of histogram) {
+      accumulated += vsize
+      if (accumulated >= targetVsize) return Math.max(1, Math.ceil(feeRate))
+    }
+    return fallback
+  }
+
+  const fastestFee = feeAtDepth(1_000_000, 10)
+  const halfHourFee = Math.min(fastestFee, feeAtDepth(3_000_000, Math.max(1, Math.floor(fastestFee * 0.7))))
+  const hourFee = Math.min(halfHourFee, feeAtDepth(6_000_000, Math.max(1, Math.floor(halfHourFee * 0.7))))
+  const economyFee = Math.min(hourFee, feeAtDepth(144_000_000, 2))
+
+  return {
+    fastestFee,
+    halfHourFee,
+    hourFee,
+    economyFee,
+    minimumFee: 1,
+    fallback: true,
+  }
 }
 
 export function MempoolCanvas() {
@@ -184,12 +211,18 @@ export function MempoolCanvas() {
           apiFetch<FeeRecommendations>("/v1/fees/precise"),
         ])
         if (!active) return
-        if (statsResult.status === "rejected") throw statsResult.reason
-        if (feesResult.status === "rejected") throw feesResult.reason
-        setStats(statsResult.value)
-        setFees(feesResult.value)
-        setLastUpdated(new Date())
-        setError("")
+        if (statsResult.status === "fulfilled") {
+          setStats(statsResult.value)
+          setFees(feesResult.status === "fulfilled" ? feesResult.value : estimateFeesFromHistogram(statsResult.value))
+          setLastUpdated(new Date())
+          setError(feesResult.status === "rejected" ? t("liveDataUnavailable") : "")
+          return
+        }
+
+        if (feesResult.status === "fulfilled") {
+          setFees(feesResult.value)
+        }
+        throw statsResult.reason
       } catch (requestError) {
         if (!active) return
         setError(requestError instanceof Error ? requestError.message : t("unableMempool"))
@@ -258,12 +291,14 @@ export function MempoolCanvas() {
           <div className="flex items-center gap-2">
             <h2 id="mempool-heading" className="text-sm font-semibold">{t("mempool")}</h2>
             {!error && lastUpdated && (
-              <span className="size-1.5 bg-emerald-500" title={`${t("updated")} ${lastUpdated.toLocaleTimeString(locale)}`} />
+              <span className="size-1.5 bg-[#00e5ff]" title={`${t("updated")} ${lastUpdated.toLocaleTimeString(locale)}`} />
             )}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {error
-              ? `${t("liveDataUnavailable")}: ${error}`
+              ? stats
+                ? `${stats.count.toLocaleString(locale)} ${t("unconfirmedTransactions")} · ${error}`
+                : `${t("liveDataUnavailable")}: ${error}`
               : stats
                 ? `${stats.count.toLocaleString(locale)} ${t("unconfirmedTransactions")}`
                 : t("loadingMempool")}

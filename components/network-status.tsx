@@ -111,7 +111,7 @@ export function NetworkStatus() {
         <div>
           <div className="flex items-center gap-2">
             <h2 id="network-heading" className="text-sm font-semibold">{t("networkStatus")}</h2>
-            {!error && mining && adjustment && <span className="size-1.5 bg-emerald-500" />}
+            {!error && mining && adjustment && <span className="size-1.5 bg-[#00e5ff]" />}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {error ? `${t("liveDataUnavailable")}: ${error}` : t("miningRetarget")}
