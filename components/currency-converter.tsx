@@ -53,6 +53,7 @@ export function CurrencyConverter() {
   const [bitcoinUnit, setBitcoinUnit] = useState<BitcoinUnit>("BTC")
   const [bitcoinAmount, setBitcoinAmount] = useState("1")
   const [fiatAmount, setFiatAmount] = useState("")
+  const [editingAmount, setEditingAmount] = useState<"bitcoin" | "fiat">("bitcoin")
   const [currencySearch, setCurrencySearch] = useState("")
   const [error, setError] = useState("")
 
@@ -86,15 +87,17 @@ export function CurrencyConverter() {
 
   useEffect(() => {
     if (!prices) return
+    if (editingAmount !== "bitcoin") return
     if (bitcoinAmount.trim() === "") {
       setFiatAmount("")
       return
     }
     const btcAmount = cryptoAmountToBtc(bitcoinAmount, bitcoinUnit)
     setFiatAmount(btcAmount !== null ? (btcAmount * prices[selectedCurrency]).toFixed(2) : "")
-  }, [bitcoinAmount, bitcoinUnit, prices, selectedCurrency])
+  }, [bitcoinAmount, bitcoinUnit, editingAmount, prices, selectedCurrency])
 
   const handleBitcoinChange = (value: string) => {
+    setEditingAmount("bitcoin")
     setBitcoinAmount(value)
     if (!prices) return
     if (value.trim() === "") {
@@ -106,6 +109,7 @@ export function CurrencyConverter() {
   }
 
   const handleFiatChange = (value: string) => {
+    setEditingAmount("fiat")
     setFiatAmount(value)
     if (!prices) return
     if (value.trim() === "") {
@@ -186,8 +190,15 @@ export function CurrencyConverter() {
             </SelectTrigger>
             <SelectContent>
               {filteredCurrencies.map((currency) => (
-                <SelectItem key={currency.code} value={currency.code}>
-                  {currency.symbol} {currency.code} · {currency.name}
+                <SelectItem key={currency.code} value={currency.code} textValue={`${currency.code} ${currency.name}`}>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="w-5 shrink-0 text-base leading-none" aria-hidden="true">
+                      {currency.flag}
+                    </span>
+                    <span className="truncate">
+                      {currency.symbol} {currency.code} · {currency.name}
+                    </span>
+                  </span>
                 </SelectItem>
               ))}
               {filteredCurrencies.length === 0 && (

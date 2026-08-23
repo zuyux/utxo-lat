@@ -43,8 +43,8 @@ export default function BitcoinExplorer() {
   }, [loadBlocks])
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b">
+    <div className="min-h-screen bg-background pt-14">
+      <header className="app-header">
         <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
           <Link href="/" className="font-semibold tracking-tight">
             utxo.lat

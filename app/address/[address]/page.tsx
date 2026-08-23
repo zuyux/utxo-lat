@@ -175,8 +175,8 @@ export default function AddressPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b">
+      <div className="min-h-screen bg-background pt-14">
+        <header className="app-header">
           <div className="container mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => router.back()}>
               <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
@@ -198,8 +198,8 @@ export default function AddressPage() {
 
   if (!addressDetail) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b">
+      <div className="min-h-screen bg-background pt-14">
+        <header className="app-header">
           <div className="container mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => router.back()}>
               <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
@@ -222,8 +222,8 @@ export default function AddressPage() {
   const shownUtxos = addressDetail.utxos.slice(0, visibleUtxos)
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b">
+    <div className="min-h-screen bg-background pt-14">
+      <header className="app-header">
         <div className="container mx-auto px-4 py-4">
           <Button variant="ghost" onClick={() => router.back()}>
             <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />

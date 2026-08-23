@@ -92,6 +92,10 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+
+  .app-header {
+    @apply fixed inset-x-0 top-0 z-50 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60;
+  }
 }
 
 /* Smooth theme transitions without animating every layout property. */

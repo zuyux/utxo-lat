@@ -131,8 +131,8 @@ export default function TransactionPage() {
   })
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b">
+    <div className="min-h-screen bg-background pt-14">
+      <header className="app-header">
         <div className="container mx-auto px-4 py-4">
           <Button variant="ghost" onClick={() => router.back()}><PublicIcon name="arrow-left" className="mr-2 size-4" />{t("back")}</Button>
         </div>
@@ -460,8 +460,8 @@ function PageMessage({ onBack, title, message }: { onBack: () => void; title?: s
   const { t } = useLanguage()
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b"><div className="container mx-auto px-4 py-4"><Button variant="ghost" onClick={onBack}><PublicIcon name="arrow-left" className="mr-2 size-4" />{t("back")}</Button></div></header>
+    <div className="min-h-screen bg-background pt-14">
+      <header className="app-header"><div className="container mx-auto px-4 py-4"><Button variant="ghost" onClick={onBack}><PublicIcon name="arrow-left" className="mr-2 size-4" />{t("back")}</Button></div></header>
       <main className="container mx-auto px-4 py-20 text-center">
         {title && <h1 className="mb-3 text-2xl font-bold">{title}</h1>}
         {!title && <Loader className="mx-auto mb-4" label={message} />}

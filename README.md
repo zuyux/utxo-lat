@@ -1,78 +1,63 @@
-# utxo.watch
+# utxo.lat
 
-**Bitcoin UTXO Tracker — Built for Watch-Only Precision**
+**Rastreador de UTXO de Bitcoin — creado para precisión watch-only**
 
-`utxo.watch` is a lightweight tool for monitoring Bitcoin Network.
+`utxo.lat` es una herramienta ligera para monitorear la red Bitcoin.
 
-## Features
+## Funcionalidades
 
-- Monitor any Bitcoin address (Legacy, SegWit, Taproot)
-- Track individual UTXOs: value, confirmations, status
-- Watch-only mode by design
-- Minimalist frontend and optional CLI mode
-- WebSocket support for real-time updates
-- API-ready backend for custom integrations
+- Monitorea cualquier dirección de Bitcoin (Legacy, SegWit, Taproot)
+- Rastrea UTXO individuales: valor, confirmaciones y estado
+- Modo watch-only por diseño
+- Frontend minimalista y modo CLI opcional
+- Soporte de WebSocket para actualizaciones en tiempo real
+- Backend listo para API e integraciones personalizadas
 
 ## Stack
 
 - Backend: Node.js + ElectrumX or Bitcoin Core RPC
 - Frontend: React + Tailwind (or headless CLI)
-- Database: JSON store or SQLite
-- Realtime: WebSockets
+- Base de datos: almacén JSON o SQLite
+- Tiempo real: WebSockets
 
-## Getting Started
+## Primeros pasos
 
 ```bash
-git clone https://github.com/zuyux/utxo-watch.git
-cd utxo.watch
+git clone https://github.com/zuyux/utxo-lat.git
+cd utxo-lat
 
 npm install
 npm run dev
 ```
 
-### Linux file watcher limits
+Como alternativa temporal, ejecuta `pnpm dev:poll`. El polling evita agotar inotify, pero
+usa más CPU, por lo que no debería ser la opción predeterminada.
 
-If development fails with `ENOSPC: System limit for number of file watchers reached`,
-first close editor windows opened at a broad directory such as `/home`, then raise the
-per-user inotify limits:
+## Uso
 
-```bash
-sudo tee /etc/sysctl.d/99-inotify.conf >/dev/null <<'EOF'
-fs.inotify.max_user_watches=524288
-fs.inotify.max_user_instances=512
-fs.inotify.max_queued_events=32768
-EOF
-sudo sysctl --system
-```
+1. Agrega una dirección de Bitcoin para monitorear
+2. Visualiza sus UTXO con confirmaciones y estado
+3. Recibe actualizaciones cuando los UTXO se confirmen o se gasten
+4. Exporta o integra los datos según sea necesario
 
-As a temporary fallback, run `pnpm dev:poll`. Polling avoids inotify exhaustion but
-uses more CPU, so it should not be the default.
+## Casos de uso
 
-## Usage
-
-1. Add a Bitcoin address to watch
-2. View its UTXOs with confirmation and status
-3. Receive updates when UTXOs are confirmed or spent
-4. Export or integrate data as needed
-
-## Use Cases
-
-* Monitor cold storage balances
-* Track multisig or vault address activity
-* Integrate UTXO data into bots or dashboards
-* Build custom watchlists without compromising privacy
+* Monitorear saldos de almacenamiento en frío
+* Rastrear actividad de direcciones multisig o vaults
+* Integrar datos de UTXO en bots o dashboards
+* Crear listas de seguimiento personalizadas sin comprometer la privacidad
 
 ## Roadmap
 
-* Address labeling and grouping
-* Notification system (webhooks, email)
-* Better taproot support
-* Multi-wallet watchlists
+* Etiquetado y agrupación de direcciones
+* Sistema de notificaciones (webhooks, email)
+* Mejor soporte para Taproot
+* Listas de seguimiento multi-wallet
 
-## License
+## Licencia
 
-MIT License
+Licencia MIT
 
-## Author
+## Autor
 
 @fabohax - [github.com/fabohax](https://github.com/fabohax)

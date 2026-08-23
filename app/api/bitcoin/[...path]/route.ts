@@ -27,25 +27,25 @@ interface ProviderRequest {
 function getProviders(path: string): ProviderRequest[] {
   if (path === "v1/blocks") {
     return [
-      { base: BLOCKSTREAM, path: "blocks" },
       { base: MEMPOOL, path },
       { base: SECONDARY_MEMPOOL, path },
+      { base: BLOCKSTREAM, path: "blocks" },
     ]
   }
 
   if (path.startsWith("v1/blocks/")) {
     return [
-      { base: BLOCKSTREAM, path: path.replace(/^v1\//, "") },
       { base: MEMPOOL, path },
       { base: SECONDARY_MEMPOOL, path },
+      { base: BLOCKSTREAM, path: path.replace(/^v1\//, "") },
     ]
   }
 
   if (path.startsWith("v1/block/")) {
     return [
-      { base: BLOCKSTREAM, path: path.replace(/^v1\//, "") },
       { base: MEMPOOL, path },
       { base: SECONDARY_MEMPOOL, path },
+      { base: BLOCKSTREAM, path: path.replace(/^v1\//, "") },
     ]
   }
 

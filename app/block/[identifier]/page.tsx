@@ -195,8 +195,8 @@ export default function BlockPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b">
+      <div className="min-h-screen bg-background pt-14">
+        <header className="app-header">
           <div className="container mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => router.back()}>
               <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
@@ -218,8 +218,8 @@ export default function BlockPage() {
 
   if (!block) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b">
+      <div className="min-h-screen bg-background pt-14">
+        <header className="app-header">
           <div className="container mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => router.back()}>
               <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
@@ -238,8 +238,8 @@ export default function BlockPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b">
+    <div className="min-h-screen bg-background pt-14">
+      <header className="app-header">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Button variant="ghost" onClick={() => router.back()}>
