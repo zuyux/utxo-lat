@@ -119,6 +119,16 @@ footer,
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
+html:not(.dark) [data-public-icon],
+html:not(.dark) button svg,
+html:not(.dark) a svg {
+  color: #000 !important;
+}
+
+html:not(.dark) .light-icon-white[data-public-icon] {
+  color: #fff !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

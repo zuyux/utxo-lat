@@ -5,7 +5,22 @@ import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
 import { Loader } from "@/components/loader"
@@ -53,6 +68,10 @@ interface AddressStats {
   chain_stats: { tx_count: number; funded_txo_sum: number; spent_txo_sum: number }
   mempool_stats: { tx_count: number; funded_txo_sum: number; spent_txo_sum: number }
 }
+
+type UtxoSortField = "value" | "age" | "confirmations" | "outpoint"
+type UtxoSortDirection = "asc" | "desc"
+type UtxoStatusFilter = "all" | "confirmed" | "unconfirmed"
 
 const fetchAddressDetail = async (address: string): Promise<AddressDetail> => {
   const stats = await apiFetch<AddressStats>(`/address/${encodeURIComponent(address)}`)
@@ -121,6 +140,9 @@ export default function AddressPage() {
   const [hasMoreTransactions, setHasMoreTransactions] = useState(false)
   const [visibleUtxos, setVisibleUtxos] = useState(50)
   const [bitcoinUnit, setBitcoinUnit] = useState<BitcoinUnit>("btc")
+  const [utxoStatusFilter, setUtxoStatusFilter] = useState<UtxoStatusFilter>("all")
+  const [utxoSortField, setUtxoSortField] = useState<UtxoSortField>("value")
+  const [utxoSortDirection, setUtxoSortDirection] = useState<UtxoSortDirection>("desc")
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -230,7 +252,33 @@ export default function AddressPage() {
 
   const confirmedTransactions = addressDetail.transactions.filter((tx) => tx.blockHeight > 0)
   const utxoTotal = addressDetail.utxos.reduce((sum, utxo) => sum + utxo.value, 0)
-  const shownUtxos = addressDetail.utxos.slice(0, visibleUtxos)
+  const addressScriptType = getAddressType(addressDetail.address)
+  const managedUtxos = addressDetail.utxos
+    .map((utxo) => {
+      const confirmations =
+        utxo.status.confirmed && utxo.status.block_height && addressDetail.tipHeight > 0
+          ? addressDetail.tipHeight - utxo.status.block_height + 1
+          : 0
+      const ageSeconds = utxo.status.block_time
+        ? Math.max(0, Math.floor(Date.now() / 1000) - utxo.status.block_time)
+        : 0
+
+      return { ...utxo, confirmations, ageSeconds }
+    })
+    .filter((utxo) => {
+      if (utxoStatusFilter === "confirmed") return utxo.confirmations > 0
+      if (utxoStatusFilter === "unconfirmed") return utxo.confirmations === 0
+      return true
+    })
+    .sort((first, second) => {
+      const direction = utxoSortDirection === "asc" ? 1 : -1
+      if (utxoSortField === "value") return (first.value - second.value) * direction
+      if (utxoSortField === "age") return (first.ageSeconds - second.ageSeconds) * direction
+      if (utxoSortField === "confirmations") return (first.confirmations - second.confirmations) * direction
+      return `${first.txid}:${first.vout}`.localeCompare(`${second.txid}:${second.vout}`) * direction
+    })
+  const shownUtxos = managedUtxos.slice(0, visibleUtxos)
+  const filteredUtxoTotal = managedUtxos.reduce((sum, utxo) => sum + utxo.value, 0)
   const formatAmount = (sats: number) => formatBitcoinAmount(sats, bitcoinUnit, locale)
 
   return (
@@ -412,14 +460,65 @@ export default function AddressPage() {
           <TabsContent value="utxos">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <PublicIcon name="coins" className="size-5" />
-                  {t("unspentOutputs")}
-                </CardTitle>
-                <CardDescription>
-                  {addressDetail.utxos.length.toLocaleString(locale)} {addressDetail.utxos.length === 1 ? t("spendableOutput") : t("spendableOutputs")} ·{" "}
-                  {formatAmount(utxoTotal)}
-                </CardDescription>
+                <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <PublicIcon name="coins" className="size-5" />
+                      UTXO management
+                    </CardTitle>
+                    <CardDescription>
+                      {addressDetail.utxos.length.toLocaleString(locale)} {addressDetail.utxos.length === 1 ? t("spendableOutput") : t("spendableOutputs")} ·{" "}
+                      {formatAmount(utxoTotal)}
+                    </CardDescription>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:min-w-[34rem]">
+                    <Select
+                      value={utxoStatusFilter}
+                      onValueChange={(value) => {
+                        setUtxoStatusFilter(value as UtxoStatusFilter)
+                        setVisibleUtxos(50)
+                      }}
+                    >
+                      <SelectTrigger aria-label="Filter UTXOs by status">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All statuses</SelectItem>
+                        <SelectItem value="confirmed">{t("confirmed")}</SelectItem>
+                        <SelectItem value="unconfirmed">{t("unconfirmed")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select
+                      value={utxoSortField}
+                      onValueChange={(value) => setUtxoSortField(value as UtxoSortField)}
+                    >
+                      <SelectTrigger aria-label="Sort UTXOs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="value">Sort by value</SelectItem>
+                        <SelectItem value="age">Sort by age</SelectItem>
+                        <SelectItem value="confirmations">Sort by confirmations</SelectItem>
+                        <SelectItem value="outpoint">Sort by outpoint</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select
+                      value={utxoSortDirection}
+                      onValueChange={(value) => setUtxoSortDirection(value as UtxoSortDirection)}
+                    >
+                      <SelectTrigger aria-label="Sort direction">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="desc">Descending</SelectItem>
+                        <SelectItem value="asc">Ascending</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {!addressDetail.utxosAvailable ? (
@@ -431,52 +530,96 @@ export default function AddressPage() {
                     {t("noUtxos")}
                   </p>
                 ) : (
-                  <div className="space-y-3">
-                    {shownUtxos.map((utxo) => {
-                      const confirmations =
-                        utxo.status.confirmed && utxo.status.block_height && addressDetail.tipHeight > 0
-                          ? addressDetail.tipHeight - utxo.status.block_height + 1
-                          : 0
-                      return (
-                        <div key={`${utxo.txid}:${utxo.vout}`} className="rounded-lg border p-4">
-                          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                            <div className="min-w-0">
-                              <Button
-                                variant="link"
-                                className="h-auto max-w-full justify-start p-0 text-left font-mono text-xs"
-                                onClick={() => router.push(`/tx/${utxo.txid}`)}
-                              >
-                                <span className="break-all">{utxo.txid}:{utxo.vout}</span>
-                                <PublicIcon name="externalLink" className="ml-1.5 size-3 shrink-0" />
-                              </Button>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                {utxo.status.block_height
-                                  ? `${t("block")} #${utxo.status.block_height.toLocaleString(locale)}`
-                                  : t("unconfirmedOutput")}
-                              </p>
-                            </div>
-                            <div className="shrink-0 text-left sm:text-right">
-                              <p className="font-medium">{formatAmount(utxo.value)}</p>
-                              <Badge variant={confirmations > 0 ? "default" : "secondary"} className="mt-1 text-xs">
-                                {confirmations > 0
-                                  ? `${confirmations.toLocaleString(locale)} conf`
-                                  : utxo.status.confirmed ? t("confirmed") : t("unconfirmed")}
-                              </Badge>
-                            </div>
-                          </div>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
+                      <div className="rounded-md border p-3">
+                        <div className="text-xs text-muted-foreground">Filtered value</div>
+                        <div className="mt-1 font-medium">{formatAmount(filteredUtxoTotal)}</div>
+                      </div>
+                      <div className="rounded-md border p-3">
+                        <div className="text-xs text-muted-foreground">Visible UTXOs</div>
+                        <div className="mt-1 font-medium">
+                          {managedUtxos.length.toLocaleString(locale)} {t("of")} {addressDetail.utxos.length.toLocaleString(locale)}
                         </div>
-                      )
-                    })}
-                    {visibleUtxos < addressDetail.utxos.length && (
+                      </div>
+                      <div className="rounded-md border p-3">
+                        <div className="text-xs text-muted-foreground">{t("script")}</div>
+                        <div className="mt-1 font-medium">{addressScriptType}</div>
+                      </div>
+                    </div>
+
+                    {managedUtxos.length === 0 ? (
+                      <p className="py-8 text-center text-sm text-muted-foreground">
+                        No UTXOs match the current filters.
+                      </p>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Outpoint</TableHead>
+                            <TableHead>Value</TableHead>
+                            <TableHead>Age</TableHead>
+                            <TableHead>{t("confirmations")}</TableHead>
+                            <TableHead>{t("script")}</TableHead>
+                            <TableHead>{t("status")}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {shownUtxos.map((utxo) => (
+                            <TableRow key={`${utxo.txid}:${utxo.vout}`}>
+                              <TableCell className="min-w-[17rem]">
+                                <Button
+                                  variant="link"
+                                  className="h-auto max-w-64 justify-start p-0 text-left font-mono text-xs"
+                                  onClick={() => router.push(`/tx/${utxo.txid}`)}
+                                >
+                                  <span className="truncate">{utxo.txid}:{utxo.vout}</span>
+                                  <PublicIcon name="externalLink" className="ml-1.5 size-3 shrink-0" />
+                                </Button>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  vout {utxo.vout.toLocaleString(locale)}
+                                </div>
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap font-medium">
+                                {formatAmount(utxo.value)}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                {utxo.status.block_time
+                                  ? formatDistanceToNow(new Date(utxo.status.block_time * 1000), { addSuffix: true, locale: dateLocale })
+                                  : t("pending")}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                {utxo.confirmations > 0
+                                  ? utxo.confirmations.toLocaleString(locale)
+                                  : t("unconfirmed")}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                {addressScriptType}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1.5">
+                                  <Badge variant="outline">{t("unspent")}</Badge>
+                                  <Badge variant={utxo.confirmations > 0 ? "default" : "secondary"}>
+                                    {utxo.confirmations > 0 ? t("confirmed") : t("unconfirmed")}
+                                  </Badge>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+
+                    {visibleUtxos < managedUtxos.length && (
                       <div className="pt-2 text-center">
                         <Button
                           variant="outline"
-                          onClick={() => setVisibleUtxos((count) => Math.min(count + 50, addressDetail.utxos.length))}
+                          onClick={() => setVisibleUtxos((count) => Math.min(count + 50, managedUtxos.length))}
                         >
                           {t("showMoreUtxos")}
                         </Button>
                         <p className="mt-2 text-xs text-muted-foreground">
-                          {t("showing")} {shownUtxos.length.toLocaleString(locale)} {t("of")} {addressDetail.utxos.length.toLocaleString(locale)}
+                          {t("showing")} {shownUtxos.length.toLocaleString(locale)} {t("of")} {managedUtxos.length.toLocaleString(locale)}
                         </p>
                       </div>
                     )}

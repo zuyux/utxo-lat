@@ -4,9 +4,9 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react"
 import { enUS, es, ptBR } from "date-fns/locale"
 
 export const languages = [
-  { code: "es", label: "Español" },
-  { code: "en", label: "English" },
-  { code: "pt", label: "Português" },
+  { code: "en", label: "EN" },
+  { code: "es", label: "ES" },
+  { code: "pt", label: "PT" },
 ] as const
 
 export type Language = (typeof languages)[number]["code"]
@@ -195,7 +195,7 @@ const dictionaries = {
     retry: "Reintentar",
     refresh: "Actualizar",
     watchlistTitle: "Lista watch-only",
-    watchlistDescription: "Guarda direcciones en este navegador, organízalas por wallet o vault y suma sus saldos en vivo.",
+    watchlistDescription: "Guarda direcciones en este navegador y suma sus saldos en vivo.",
     watchlistAddressPlaceholder: "bc1q...",
     watchlistLabel: "Etiqueta",
     watchlistLabelPlaceholder: "Tesorería, firma 1, cold wallet...",
@@ -497,7 +497,7 @@ Object.assign(english, {
   liveDataUnavailable: "Live data unavailable",
   refresh: "Refresh",
   watchlistTitle: "Watch-only list",
-  watchlistDescription: "Save addresses in this browser, organize them by wallet or vault, and total their live balances.",
+  watchlistDescription: "Save addresses in this browser, and total their live balances.",
   watchlistAddressPlaceholder: "bc1q...",
   watchlistLabel: "Label",
   watchlistLabelPlaceholder: "Treasury, signer 1, cold wallet...",
@@ -730,7 +730,7 @@ Object.assign(portuguese, {
   providerMinimum: "Mínimo do provedor",
   refresh: "Atualizar",
   watchlistTitle: "Lista watch-only",
-  watchlistDescription: "Salve endereços neste navegador, organize por wallet ou vault e some os saldos ao vivo.",
+  watchlistDescription: "Salve endereços neste navegador e some os saldos ao vivo.",
   watchlistAddressPlaceholder: "bc1q...",
   watchlistLabel: "Etiqueta",
   watchlistLabelPlaceholder: "Tesouraria, assinatura 1, cold wallet...",

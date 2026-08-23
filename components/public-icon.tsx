@@ -48,6 +48,7 @@ export function PublicIcon({ name, className, "aria-hidden": ariaHidden = true }
   return (
     <span
       aria-hidden={ariaHidden}
+      data-public-icon=""
       className={cn("inline-block size-4 shrink-0 bg-current", className)}
       style={{
         maskImage: `url(${path})`,

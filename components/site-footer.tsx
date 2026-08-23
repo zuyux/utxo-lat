@@ -16,7 +16,7 @@ export function SiteFooter() {
         <div className="flex items-center gap-3">
           <Watchlist trigger="icon" />
           <Select value={language} onValueChange={setLanguage}>
-            <SelectTrigger className="h-8 w-[128px] text-xs" aria-label={t("language")}>
+            <SelectTrigger className="h-8 w-[68px] text-xs" aria-label={t("language")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

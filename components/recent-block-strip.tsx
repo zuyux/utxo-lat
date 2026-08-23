@@ -21,13 +21,14 @@ interface RecentBlockStripProps {
 export function RecentBlockStrip({ blocks }: RecentBlockStripProps) {
   const router = useRouter()
   const { dateLocale, t } = useLanguage()
+  const leftToRightBlocks = [...blocks].reverse()
 
   if (blocks.length === 0) return null
 
   return (
     <div className="py-4" aria-label={t("recentlyMinedBlocks")}>
       <div className="flex w-full gap-2 overflow-x-auto pb-2 [scrollbar-width:thin]">
-        {blocks.map((block) => (
+        {leftToRightBlocks.map((block) => (
           <button
             key={block.height}
             type="button"

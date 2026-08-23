@@ -219,31 +219,6 @@ export function Watchlist({ addressToAdd = "", trigger = "button" }: WatchlistPr
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="flex flex-wrap justify-end gap-2">
-            <div className="flex rounded-md border p-0.5" aria-label="Bitcoin unit">
-              <Button
-                variant={bitcoinUnit === "btc" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-7 px-2"
-                onClick={() => setBitcoinUnit("btc")}
-              >
-                BTC
-              </Button>
-              <Button
-                variant={bitcoinUnit === "sat" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-7 px-2"
-                onClick={() => setBitcoinUnit("sat")}
-              >
-                SAT
-              </Button>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => refreshBalances(addresses)} disabled={addresses.length === 0}>
-              <PublicIcon name="refresh" className="mr-2 size-4" />
-              {t("refresh")}
-            </Button>
-          </div>
-
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_16rem]">
             <form onSubmit={handleSubmit} className="rounded-lg border bg-card p-4">
               <div className="grid gap-3">
@@ -268,13 +243,44 @@ export function Watchlist({ addressToAdd = "", trigger = "button" }: WatchlistPr
                 </div>
               </div>
               <Button type="submit" className="mt-4 w-full">
-                <PublicIcon name="save" className="mr-2 size-4" />
+                <PublicIcon name="save" className="light-icon-white mr-2 size-4" />
                 {t("watchlistAddCurrent")}
               </Button>
             </form>
 
             <Card>
-              <CardHeader>
+              <CardHeader className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex rounded-md border p-0.5" aria-label="Bitcoin unit">
+                    <Button
+                      variant={bitcoinUnit === "btc" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={() => setBitcoinUnit("btc")}
+                    >
+                      BTC
+                    </Button>
+                    <Button
+                      variant={bitcoinUnit === "sat" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={() => setBitcoinUnit("sat")}
+                    >
+                      SAT
+                    </Button>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-8"
+                    onClick={() => refreshBalances(addresses)}
+                    disabled={addresses.length === 0}
+                    aria-label={t("refresh")}
+                    title={t("refresh")}
+                  >
+                    <PublicIcon name="refresh" className="size-4" />
+                  </Button>
+                </div>
                 <CardTitle className="text-sm">{t("watchlistCombinedBalance")}</CardTitle>
                 <CardDescription>{addresses.length.toLocaleString(locale)} {t("watchlistSavedAddresses")}</CardDescription>
               </CardHeader>
@@ -316,6 +322,7 @@ export function Watchlist({ addressToAdd = "", trigger = "button" }: WatchlistPr
                         </div>
                         <Link
                           href={`/address/${encodeURIComponent(item.address)}`}
+                          onClick={() => setOpen(false)}
                           className="mt-1 block truncate font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
                         >
                           {item.address}
