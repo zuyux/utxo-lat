@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
 import { Loader } from "@/components/loader"
+import { MainHeader } from "@/components/main-header"
 import { PublicIcon } from "@/components/public-icon"
 import { useLanguage } from "@/lib/i18n"
 import { apiFetch, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
@@ -176,14 +177,7 @@ export default function AddressPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background pt-14">
-        <header className="app-header">
-          <div className="container mx-auto px-4 py-4">
-            <Button variant="ghost" onClick={() => router.back()}>
-              <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
-              {t("back")}
-            </Button>
-          </div>
-        </header>
+        <MainHeader />
 
         <main className="grid min-h-[calc(100vh-3.5rem)] place-items-center">
           <Loader size="lg" label={t("loadingAddress")} />
@@ -195,15 +189,13 @@ export default function AddressPage() {
   if (!addressDetail) {
     return (
       <div className="min-h-screen bg-background pt-14">
-        <header className="app-header">
-          <div className="container mx-auto px-4 py-4">
-            <Button variant="ghost" onClick={() => router.back()}>
-              <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
-              {t("back")}
-            </Button>
-          </div>
-        </header>
+        <MainHeader />
+
         <div className="container mx-auto px-4 py-8">
+          <Button className="mb-8" variant="ghost" onClick={() => router.back()}>
+            <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
+            {t("back")}
+          </Button>
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">{t("addressNotFound")}</h1>
             <p className="text-muted-foreground">{error || t("addressNotFoundMessage")}</p>
@@ -219,16 +211,16 @@ export default function AddressPage() {
 
   return (
     <div className="min-h-screen bg-background pt-14">
-      <header className="app-header">
-        <div className="container mx-auto px-4 py-4">
+      <MainHeader />
+
+      <div className="container mx-auto px-4 py-6">
+        <div className="mb-6">
           <Button variant="ghost" onClick={() => router.back()}>
             <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
             {t("back")}
           </Button>
         </div>
-      </header>
 
-      <div className="container mx-auto px-4 py-6">
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">{t("addressDetails")}</h1>
           <div className="flex items-center gap-2">
