@@ -7,8 +7,12 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-  	extend: {
-  		colors: {
+  		extend: {
+			fontFamily: {
+				sans: ['var(--font-content)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+				title: ['var(--font-title)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+			},
+  			colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {

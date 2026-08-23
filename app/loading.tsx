@@ -10,7 +10,7 @@ export default function Loading() {
     <div className="min-h-screen bg-background pt-14">
       <header className="app-header">
         <div className="grid h-14 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4">
-          <Link href="/" className="font-semibold tracking-tight">
+          <Link href="/" className="font-title font-semibold tracking-tight">
             utxo.lat
           </Link>
 

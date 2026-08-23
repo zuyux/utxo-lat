@@ -65,29 +65,29 @@ export default function BitcoinExplorer() {
         </div>
 
         <div className="mx-auto w-full max-w-2xl px-4 py-8">
-        <section aria-labelledby="blocks-heading">
-          <div className="flex items-end justify-between pb-3">
-            <div>
-              <h1 id="blocks-heading" className="text-sm font-semibold">
-                {t("latestBlocks")}
-              </h1>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {t("bitcoinMainnet")}
-              </p>
+          <section aria-labelledby="blocks-heading">
+            <div className="flex items-end justify-between pb-3">
+              <div>
+                <h1 id="blocks-heading" className="text-sm font-semibold">
+                  {t("latestBlocks")}
+                </h1>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {t("bitcoinMainnet")}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="relative flex size-2">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#0000FF] dark:bg-[#00e5ff] opacity-60" />
+                  <span className="relative inline-flex size-2 rounded-full bg-[#0000FF] dark:bg-[#00e5ff]" />
+                </span>
+                {t("liveRefresh30")}
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#00e5ff] opacity-60" />
-                <span className="relative inline-flex size-2 rounded-full bg-[#00e5ff]" />
-              </span>
-              {t("liveRefresh30")}
-            </div>
-          </div>
 
-          <Separator />
-          {error && <p className="py-6 text-sm text-destructive">{error}. {t("tryAgainShortly")}</p>}
-          <BlockList blocks={blocks} />
-        </section>
+            <Separator />
+            {error && <p className="py-6 text-sm text-destructive">{error}. {t("tryAgainShortly")}</p>}
+            <BlockList blocks={blocks} />
+          </section>
 
           <NetworkStatus />
           <MempoolCanvas />

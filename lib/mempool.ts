@@ -29,6 +29,16 @@ export async function apiFetchText(path: string, signal?: AbortSignal): Promise<
 
 export const satsToBtc = (sats: number) => (sats / 100_000_000).toFixed(8)
 
+export type BitcoinUnit = "btc" | "sat"
+
+export const formatBitcoinAmount = (sats: number, unit: BitcoinUnit, locale = "en-US") => {
+  if (unit === "sat") {
+    return `${Math.round(sats).toLocaleString(locale)} SAT`
+  }
+
+  return `${satsToBtc(sats)} BTC`
+}
+
 export interface TxStatus {
   confirmed: boolean
   block_height?: number

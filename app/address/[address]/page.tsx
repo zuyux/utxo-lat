@@ -11,13 +11,14 @@ import { formatDistanceToNow } from "date-fns"
 import { Loader } from "@/components/loader"
 import { MainHeader } from "@/components/main-header"
 import { PublicIcon } from "@/components/public-icon"
+import { Watchlist } from "@/components/watchlist"
 import { useLanguage } from "@/lib/i18n"
-import { apiFetch, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
+import { apiFetch, type BitcoinUnit, formatBitcoinAmount, type MempoolTransaction } from "@/lib/mempool"
 
 interface AddressTransaction {
   txid: string
   type: "sent" | "received"
-  amount: string
+  amount: number
   confirmations: number
   timestamp: string
   blockHeight: number
@@ -25,9 +26,9 @@ interface AddressTransaction {
 
 interface AddressDetail {
   address: string
-  balance: string
-  totalReceived: string
-  totalSent: string
+  balance: number
+  totalReceived: number
+  totalSent: number
   transactionCount: number
   transactions: AddressTransaction[]
   utxos: AddressUtxo[]
@@ -68,9 +69,9 @@ const fetchAddressDetail = async (address: string): Promise<AddressDetail> => {
   const transactions = txs.map((tx) => mapAddressTransaction(tx, address, tip))
   return {
     address: stats.address,
-    balance: satsToBtc(received - sent),
-    totalReceived: satsToBtc(received),
-    totalSent: satsToBtc(sent),
+    balance: received - sent,
+    totalReceived: received,
+    totalSent: sent,
     transactionCount: stats.chain_stats.tx_count + stats.mempool_stats.tx_count,
     transactions,
     utxos,
@@ -90,7 +91,7 @@ function mapAddressTransaction(tx: MempoolTransaction, address: string, tip: num
   return {
     txid: tx.txid,
     type: net >= 0 ? "received" : "sent",
-    amount: satsToBtc(Math.abs(net)),
+    amount: Math.abs(net),
     confirmations: tx.status.confirmed && tx.status.block_height && tip > 0
       ? tip - tx.status.block_height + 1
       : 0,
@@ -119,6 +120,7 @@ export default function AddressPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMoreTransactions, setHasMoreTransactions] = useState(false)
   const [visibleUtxos, setVisibleUtxos] = useState(50)
+  const [bitcoinUnit, setBitcoinUnit] = useState<BitcoinUnit>("btc")
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -141,9 +143,30 @@ export default function AddressPage() {
     fetchAddress()
   }, [address, t])
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    toast.success(t("copied"))
+  const copyToClipboard = async (text: string) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        const textarea = document.createElement("textarea")
+        textarea.value = text
+        textarea.setAttribute("readonly", "")
+        textarea.style.position = "fixed"
+        textarea.style.left = "-9999px"
+        document.body.appendChild(textarea)
+        textarea.select()
+        const copied = document.execCommand("copy")
+        document.body.removeChild(textarea)
+
+        if (!copied) {
+          throw new Error(t("copyFailed"))
+        }
+      }
+
+      toast.success(t("copied"))
+    } catch {
+      toast.error(t("copyFailed"))
+    }
   }
 
   const loadMoreTransactions = async () => {
@@ -208,6 +231,7 @@ export default function AddressPage() {
   const confirmedTransactions = addressDetail.transactions.filter((tx) => tx.blockHeight > 0)
   const utxoTotal = addressDetail.utxos.reduce((sum, utxo) => sum + utxo.value, 0)
   const shownUtxos = addressDetail.utxos.slice(0, visibleUtxos)
+  const formatAmount = (sats: number) => formatBitcoinAmount(sats, bitcoinUnit, locale)
 
   return (
     <div className="min-h-screen bg-background pt-14">
@@ -222,12 +246,39 @@ export default function AddressPage() {
         </div>
 
         <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">{t("addressDetails")}</h1>
-          <div className="flex items-center gap-2">
+          <div className="mb-2 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <h1 className="text-3xl font-bold">{t("addressDetails")}</h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <code className="text-sm bg-muted px-2 py-1 rounded break-all">{addressDetail.address}</code>
-            <Button variant="ghost" size="sm" onClick={() => copyToClipboard(addressDetail.address)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyToClipboard(addressDetail.address)}
+              aria-label={t("copyAddress")}
+              title={t("copyAddress")}
+            >
               <PublicIcon name="copy" className="h-4 w-4" />
             </Button>
+            <Watchlist addressToAdd={addressDetail.address} />
+            <div className="ml-0 flex rounded-md border p-0.5 sm:ml-2" aria-label="Bitcoin unit">
+              <Button
+                variant={bitcoinUnit === "btc" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setBitcoinUnit("btc")}
+              >
+                BTC
+              </Button>
+              <Button
+                variant={bitcoinUnit === "sat" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setBitcoinUnit("sat")}
+              >
+                SAT
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -238,7 +289,7 @@ export default function AddressPage() {
               <PublicIcon name="wallet" className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{addressDetail.balance} BTC</div>
+              <div className="text-2xl font-bold">{formatAmount(addressDetail.balance)}</div>
               <p className="text-xs text-muted-foreground">{t("confirmedMempoolTotals")}</p>
             </CardContent>
           </Card>
@@ -246,10 +297,10 @@ export default function AddressPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("totalReceived")}</CardTitle>
-              <PublicIcon name="received" className="h-4 w-4 text-[#00e5ff]" />
+              <PublicIcon name="received" className="h-4 w-4 text-[#0000FF] dark:text-[#00e5ff]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-[#00e5ff]">{addressDetail.totalReceived} BTC</div>
+              <div className="text-2xl font-bold text-[#0000FF] dark:text-[#00e5ff]">{formatAmount(addressDetail.totalReceived)}</div>
               <p className="text-xs text-muted-foreground">{t("allTimeReceived")}</p>
             </CardContent>
           </Card>
@@ -257,10 +308,10 @@ export default function AddressPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("totalSent")}</CardTitle>
-              <PublicIcon name="sent" className="h-4 w-4 text-[#ff1744]" />
+              <PublicIcon name="sent" className="h-4 w-4 text-[#ff0000]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-[#ff1744]">{addressDetail.totalSent} BTC</div>
+              <div className="text-2xl font-bold text-[#ff0000]">{formatAmount(addressDetail.totalSent)}</div>
               <p className="text-xs text-muted-foreground">{t("allTimeSent")}</p>
             </CardContent>
           </Card>
@@ -268,7 +319,7 @@ export default function AddressPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("transactions")}</CardTitle>
-              <PublicIcon name="externalLink" className="h-4 w-4 text-muted-foreground" />
+              <PublicIcon name="txs" className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{addressDetail.transactionCount}</div>
@@ -305,13 +356,13 @@ export default function AddressPage() {
                       <div className="flex items-center gap-3">
                         <div
                           className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            tx.type === "received" ? "bg-[#00e5ff]/15" : "bg-[#ff1744]/15"
+                            tx.type === "received" ? "bg-[#0000FF]/10 dark:bg-[#00e5ff]/15" : "bg-[#ff0000]/15"
                           }`}
                         >
                           {tx.type === "received" ? (
-                            <PublicIcon name="received" className="h-4 w-4 text-[#00e5ff]" />
+                            <PublicIcon name="received" className="h-4 w-4 text-[#0000FF] dark:text-[#00e5ff]" />
                           ) : (
-                            <PublicIcon name="sent" className="h-4 w-4 text-[#ff1744]" />
+                            <PublicIcon name="sent" className="h-4 w-4 text-[#ff0000]" />
                           )}
                         </div>
                         <div>
@@ -331,9 +382,9 @@ export default function AddressPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className={`font-medium ${tx.type === "received" ? "text-[#00e5ff]" : "text-[#ff1744]"}`}>
+                        <div className={`font-medium ${tx.type === "received" ? "text-[#0000FF] dark:text-[#00e5ff]" : "text-[#ff0000]"}`}>
                           {tx.type === "received" ? "+" : "-"}
-                          {tx.amount} BTC
+                          {formatAmount(tx.amount)}
                         </div>
                         <Badge variant={tx.confirmations === 0 ? "secondary" : "default"} className="text-xs">
                           {tx.confirmations === 0 ? t("unconfirmed") : `${tx.confirmations} conf`}
@@ -367,7 +418,7 @@ export default function AddressPage() {
                 </CardTitle>
                 <CardDescription>
                   {addressDetail.utxos.length.toLocaleString(locale)} {addressDetail.utxos.length === 1 ? t("spendableOutput") : t("spendableOutputs")} ·{" "}
-                  {satsToBtc(utxoTotal)} {t("btcTotal")}
+                  {formatAmount(utxoTotal)}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -405,7 +456,7 @@ export default function AddressPage() {
                               </p>
                             </div>
                             <div className="shrink-0 text-left sm:text-right">
-                              <p className="font-medium">{satsToBtc(utxo.value)} BTC</p>
+                              <p className="font-medium">{formatAmount(utxo.value)}</p>
                               <Badge variant={confirmations > 0 ? "default" : "secondary"} className="mt-1 text-xs">
                                 {confirmations > 0
                                   ? `${confirmations.toLocaleString(locale)} conf`

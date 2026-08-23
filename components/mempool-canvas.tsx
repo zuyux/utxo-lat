@@ -1,6 +1,6 @@
 "use client"
 
-import { PointerEvent, useCallback, useEffect, useRef, useState } from "react"
+import { PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { PublicIcon } from "@/components/public-icon"
 import { Button } from "@/components/ui/button"
@@ -47,8 +47,6 @@ interface HoveredCell extends Cell {
   x: number
   y: number
 }
-
-const colors = ["#ff1744", "#fbbf24", "#00e5ff", "#38bdf8"] as const
 
 function makeCells(histogram: Array<[number, number]>, capacity: number) {
   const totalVsize = histogram.reduce((sum, [, vsize]) => sum + vsize, 0)
@@ -146,6 +144,12 @@ export function MempoolCanvas() {
   const [hovered, setHovered] = useState<HoveredCell | null>(null)
   const [error, setError] = useState("")
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [isDarkTheme, setIsDarkTheme] = useState(false)
+
+  const colors = useMemo(
+    () => ["#ff0000", "#fbbf24", isDarkTheme ? "#00e5ff" : "#0000FF", "#38bdf8"] as const,
+    [isDarkTheme],
+  )
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -200,7 +204,16 @@ export function MempoolCanvas() {
       }
     })
     context.globalAlpha = 1
-  }, [fees, stats])
+  }, [colors, fees, stats])
+
+  useEffect(() => {
+    const updateTheme = () => setIsDarkTheme(document.documentElement.classList.contains("dark"))
+    updateTheme()
+
+    const observer = new MutationObserver(updateTheme)
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -291,7 +304,7 @@ export function MempoolCanvas() {
           <div className="flex items-center gap-2">
             <h2 id="mempool-heading" className="text-sm font-semibold">{t("mempool")}</h2>
             {!error && lastUpdated && (
-              <span className="size-1.5 bg-[#00e5ff]" title={`${t("updated")} ${lastUpdated.toLocaleTimeString(locale)}`} />
+              <span className="size-1.5 bg-[#0000FF] dark:bg-[#00e5ff]" title={`${t("updated")} ${lastUpdated.toLocaleTimeString(locale)}`} />
             )}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
