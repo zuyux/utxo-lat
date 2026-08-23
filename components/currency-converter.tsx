@@ -14,12 +14,12 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { currencies, type CurrencyCode } from "@/lib/currencies"
+import { cn } from "@/lib/utils"
+import { currencies, currencyCountries, type CurrencyCode } from "@/lib/currencies"
 import { useLanguage } from "@/lib/i18n"
 
 type BitcoinUnit = "BTC" | "SAT"
-type PriceResponse = { time: number; source: string } & Record<CurrencyCode, number>
+type PriceResponse = { time: number; source: string } & Partial<Record<CurrencyCode, number>>
 
 const currencyStorageKey = "current-currency"
 const satsPerBtc = 100_000_000
@@ -46,6 +46,14 @@ function btcToCryptoAmount(value: number, unit: BitcoinUnit) {
   return unit === "SAT" ? String(Math.round(value * satsPerBtc)) : value.toFixed(8)
 }
 
+function hasPrice(value: number | undefined): value is number {
+  return Number.isFinite(value)
+}
+
+function formatCurrencyLabel(currency: (typeof currencies)[number]) {
+  return `${currency.symbol} ${currency.code} · ${currency.name}`
+}
+
 export function CurrencyConverter() {
   const { locale, t } = useLanguage()
   const [prices, setPrices] = useState<PriceResponse | null>(null)
@@ -55,6 +63,7 @@ export function CurrencyConverter() {
   const [fiatAmount, setFiatAmount] = useState("")
   const [editingAmount, setEditingAmount] = useState<"bitcoin" | "fiat">("bitcoin")
   const [currencySearch, setCurrencySearch] = useState("")
+  const [isCurrencySearchFocused, setIsCurrencySearchFocused] = useState(false)
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -93,7 +102,8 @@ export function CurrencyConverter() {
       return
     }
     const btcAmount = cryptoAmountToBtc(bitcoinAmount, bitcoinUnit)
-    setFiatAmount(btcAmount !== null ? (btcAmount * prices[selectedCurrency]).toFixed(2) : "")
+    const selectedPrice = prices[selectedCurrency]
+    setFiatAmount(btcAmount !== null && hasPrice(selectedPrice) ? (btcAmount * selectedPrice).toFixed(2) : "")
   }, [bitcoinAmount, bitcoinUnit, editingAmount, prices, selectedCurrency])
 
   const handleBitcoinChange = (value: string) => {
@@ -105,7 +115,8 @@ export function CurrencyConverter() {
       return
     }
     const btcAmount = cryptoAmountToBtc(value, bitcoinUnit)
-    setFiatAmount(btcAmount !== null ? (btcAmount * prices[selectedCurrency]).toFixed(2) : "")
+    const selectedPrice = prices[selectedCurrency]
+    setFiatAmount(btcAmount !== null && hasPrice(selectedPrice) ? (btcAmount * selectedPrice).toFixed(2) : "")
   }
 
   const handleFiatChange = (value: string) => {
@@ -117,12 +128,14 @@ export function CurrencyConverter() {
       return
     }
     const amount = Number(value)
-    setBitcoinAmount(Number.isFinite(amount) ? btcToCryptoAmount(amount / prices[selectedCurrency], bitcoinUnit) : "")
+    const selectedPrice = prices[selectedCurrency]
+    setBitcoinAmount(Number.isFinite(amount) && hasPrice(selectedPrice) ? btcToCryptoAmount(amount / selectedPrice, bitcoinUnit) : "")
   }
 
   const handleCurrencyChange = (value: string) => {
     if (!isCurrencyCode(value)) return
     setSelectedCurrency(value)
+    setCurrencySearch("")
     window.localStorage.setItem(currencyStorageKey, value)
   }
 
@@ -141,12 +154,16 @@ export function CurrencyConverter() {
   }
 
   const selectedPrice = prices?.[selectedCurrency]
+  const selectedCurrencyHasPrice = hasPrice(selectedPrice)
+  const selectedCurrencyDetails = currencies.find((currency) => currency.code === selectedCurrency)
+  const selectedCurrencyLabel = selectedCurrencyDetails ? formatCurrencyLabel(selectedCurrencyDetails) : selectedCurrency
   const normalizedCurrencySearch = currencySearch.trim().toLowerCase()
   const filteredCurrencies = normalizedCurrencySearch
     ? currencies.filter((currency) => (
       currency.code.toLowerCase().includes(normalizedCurrencySearch)
         || currency.name.toLowerCase().includes(normalizedCurrencySearch)
         || currency.symbol.toLowerCase().includes(normalizedCurrencySearch)
+        || currencyCountries[currency.code]?.some((country) => country.toLowerCase().includes(normalizedCurrencySearch))
     ))
     : currencies
 
@@ -154,7 +171,7 @@ export function CurrencyConverter() {
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" className="h-9 px-2 font-mono text-xs tabular-nums">
-          {selectedPrice ? formatPrice(selectedPrice, selectedCurrency, locale) : "—"}
+          {selectedCurrencyHasPrice ? formatPrice(selectedPrice, selectedCurrency, locale) : "—"}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
@@ -168,46 +185,55 @@ export function CurrencyConverter() {
         <div className="rounded-md border bg-muted/30 p-4 text-center">
           <p className="text-xs text-muted-foreground">1 BTC</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">
-            {prices ? formatPrice(prices[selectedCurrency], selectedCurrency, locale, 2) : "—"}
+            {selectedCurrencyHasPrice ? formatPrice(selectedPrice, selectedCurrency, locale, 2) : "—"}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {currencies.find((currency) => currency.code === selectedCurrency)?.name}
+            {selectedCurrencyDetails?.name}
           </p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="converter-currency">{t("fiatCurrency")}</Label>
+          <Label htmlFor="converter-currency-search">{t("fiatCurrency")}</Label>
           <Input
             id="converter-currency-search"
             type="search"
             placeholder={t("searchCurrency")}
-            value={currencySearch}
+            value={isCurrencySearchFocused ? currencySearch : currencySearch || selectedCurrencyLabel}
             onChange={(event) => setCurrencySearch(event.target.value)}
+            onFocus={() => setIsCurrencySearchFocused(true)}
+            onBlur={() => setIsCurrencySearchFocused(false)}
           />
-          <Select value={selectedCurrency} onValueChange={handleCurrencyChange}>
-            <SelectTrigger id="converter-currency">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {filteredCurrencies.map((currency) => (
-                <SelectItem key={currency.code} value={currency.code} textValue={`${currency.code} ${currency.name}`}>
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="w-5 shrink-0 text-base leading-none" aria-hidden="true">
-                      {currency.flag}
-                    </span>
-                    <span className="truncate">
-                      {currency.symbol} {currency.code} · {currency.name}
-                    </span>
-                  </span>
-                </SelectItem>
-              ))}
-              {filteredCurrencies.length === 0 && (
-                <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                  {t("noCurrenciesFound")}
-                </div>
-              )}
-            </SelectContent>
-          </Select>
+          <div
+            className="max-h-56 overflow-y-auto rounded-md border bg-background p-1"
+            role="listbox"
+            aria-label={t("fiatCurrency")}
+          >
+            {filteredCurrencies.map((currency) => (
+              <button
+                key={currency.code}
+                type="button"
+                role="option"
+                aria-selected={currency.code === selectedCurrency}
+                className={cn(
+                  "flex h-9 w-full min-w-0 items-center gap-2 rounded-sm px-2 text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground",
+                  currency.code === selectedCurrency && "bg-accent text-accent-foreground",
+                )}
+                onClick={() => handleCurrencyChange(currency.code)}
+              >
+                <span className="w-5 shrink-0 text-base leading-none" aria-hidden="true">
+                  {currency.flag}
+                </span>
+                <span className="truncate">
+                  {formatCurrencyLabel(currency)}
+                </span>
+              </button>
+            ))}
+            {filteredCurrencies.length === 0 && (
+              <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                {t("noCurrenciesFound")}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
@@ -245,6 +271,7 @@ export function CurrencyConverter() {
               inputMode="decimal"
               value={fiatAmount}
               onChange={(event) => handleFiatChange(event.target.value)}
+              disabled={!selectedCurrencyHasPrice}
             />
           </div>
         </div>

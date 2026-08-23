@@ -24,10 +24,9 @@ export async function GET() {
     const rates = payload.data?.rates
     if (payload.data?.currency !== "BTC" || !rates) throw new Error("Invalid price response")
 
-    const prices = Object.fromEntries(currencyCodes.map((currency) => {
+    const prices = Object.fromEntries(currencyCodes.flatMap((currency) => {
       const price = Number(rates[currency])
-      if (!Number.isFinite(price)) throw new Error(`Missing ${currency} rate`)
-      return [currency, price]
+      return Number.isFinite(price) ? [[currency, price]] : []
     }))
 
     return NextResponse.json(

@@ -57,7 +57,7 @@ export function SearchBar({ className }: SearchBarProps) {
         onChange={(e) => setQuery(e.target.value)}
         className="h-10 flex-1"
       />
-      <Button type="submit" size="icon" className="size-10 shrink-0" aria-label={t("searchAria")}>
+      <Button type="submit" size="icon" className="size-10 shrink-0 text-white" aria-label={t("searchAria")}>
         <PublicIcon name="search" className="size-4" />
       </Button>
     </form>
