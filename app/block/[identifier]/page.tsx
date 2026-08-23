@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
 import { Loader } from "@/components/loader"
+import { MainHeader } from "@/components/main-header"
 import { PublicIcon } from "@/components/public-icon"
 import { useLanguage } from "@/lib/i18n"
 import { apiFetch, apiFetchText, type BlockApi, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
@@ -196,22 +197,11 @@ export default function BlockPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background pt-14">
-        <header className="app-header">
-          <div className="container mx-auto px-4 py-4">
-            <Button variant="ghost" onClick={() => router.back()}>
-              <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
-              {t("back")}
-            </Button>
-          </div>
-        </header>
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <Loader className="mx-auto mb-4" label={t("loadingBlock")} />
-              <p className="text-muted-foreground">{t("loadingBlock")}...</p>
-            </div>
-          </div>
-        </div>
+        <MainHeader />
+
+        <main className="grid min-h-[calc(100vh-3.5rem)] place-items-center">
+          <Loader size="lg" label={t("loadingBlock")} />
+        </main>
       </div>
     )
   }
@@ -219,15 +209,12 @@ export default function BlockPage() {
   if (!block) {
     return (
       <div className="min-h-screen bg-background pt-14">
-        <header className="app-header">
-          <div className="container mx-auto px-4 py-4">
-            <Button variant="ghost" onClick={() => router.back()}>
-              <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
-              {t("back")}
-            </Button>
-          </div>
-        </header>
+        <MainHeader />
         <div className="container mx-auto px-4 py-8">
+          <Button className="mb-8" variant="ghost" onClick={() => router.back()}>
+            <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
+            {t("back")}
+          </Button>
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">{t("blockNotFound")}</h1>
             <p className="text-muted-foreground">{error || t("blockNotFoundMessage")}</p>
@@ -239,38 +226,35 @@ export default function BlockPage() {
 
   return (
     <div className="min-h-screen bg-background pt-14">
-      <header className="app-header">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Button variant="ghost" onClick={() => router.back()}>
-              <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
-              {t("back")}
-            </Button>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateToBlock(block.height - 1)}
-                disabled={block.height <= 1}
-              >
-                <PublicIcon name="chevronLeft" className="mr-1 h-4 w-4" />
-                {t("previous")}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateToBlock(block.height + 1)}
-                disabled={!block.nextBlockHash}
-              >
-                {t("next")}
-                <PublicIcon name="chevronRight" className="ml-1 h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <MainHeader />
 
       <div className="container mx-auto px-4 py-6">
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <Button variant="ghost" onClick={() => router.back()}>
+            <PublicIcon name="arrow-left" className="mr-2 h-4 w-4" />
+            {t("back")}
+          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateToBlock(block.height - 1)}
+              disabled={block.height <= 1}
+            >
+              <PublicIcon name="chevronLeft" className="mr-1 h-4 w-4" />
+              {t("previous")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateToBlock(block.height + 1)}
+              disabled={!block.nextBlockHash}
+            >
+              {t("next")}
+              <PublicIcon name="chevronRight" className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
             <PublicIcon name="blocks" className="h-6 w-6" />

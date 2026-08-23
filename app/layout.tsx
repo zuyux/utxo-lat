@@ -8,11 +8,11 @@ import { LanguageProvider } from "@/lib/i18n"
 
 export const metadata: Metadata = {
   title: {
-    default: "utxo.watch — Explorador de Bitcoin",
-    template: "%s | utxo.watch",
+    default: "utxo.lat — Explorador de Bitcoin",
+    template: "%s | utxo.lat",
   },
   description: "Explorador en tiempo real de la red Bitcoin con precios, transacciones y datos de mempool",
-  metadataBase: new URL("https://utxo.watch"),
+  metadataBase: new URL("https://utxo.lat"),
 }
 
 export default function RootLayout({

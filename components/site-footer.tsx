@@ -28,7 +28,7 @@ export function SiteFooter() {
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            aria-label="utxo.watch GitHub"
+            aria-label="utxo.lat GitHub"
           >
             <Github className="size-4" aria-hidden="true" />
           </a>

@@ -10,8 +10,13 @@ import { toast } from "sonner"
 import { apiFetch } from "@/lib/mempool"
 import { PublicIcon } from "@/components/public-icon"
 import { useLanguage } from "@/lib/i18n"
+import { cn } from "@/lib/utils"
 
-export function SearchBar() {
+interface SearchBarProps {
+  className?: string
+}
+
+export function SearchBar({ className }: SearchBarProps) {
   const [query, setQuery] = useState("")
   const router = useRouter()
   const { t } = useLanguage()
@@ -43,7 +48,7 @@ export function SearchBar() {
   }
 
   return (
-    <form onSubmit={handleSearch} className="flex gap-2">
+    <form onSubmit={handleSearch} className={cn("flex gap-2", className)}>
       <Input
         type="text"
         placeholder={t("searchPlaceholder")}

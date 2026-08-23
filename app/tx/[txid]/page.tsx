@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { Loader } from "@/components/loader"
+import { MainHeader } from "@/components/main-header"
 import { PublicIcon } from "@/components/public-icon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -108,7 +109,17 @@ export default function TransactionPage() {
     toast.success(t("copied"))
   }
 
-  if (loading) return <PageMessage onBack={() => router.back()} message={t("loadingTransaction")} />
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background pt-14">
+        <MainHeader />
+
+        <main className="grid min-h-[calc(100vh-3.5rem)] place-items-center">
+          <Loader size="lg" label={t("loadingTransaction")} />
+        </main>
+      </div>
+    )
+  }
   if (error || !transaction) {
     return <PageMessage onBack={() => router.back()} title={t("transactionNotFound")} message={error || t("noTransactionData")} />
   }
@@ -132,13 +143,13 @@ export default function TransactionPage() {
 
   return (
     <div className="min-h-screen bg-background pt-14">
-      <header className="app-header">
-        <div className="container mx-auto px-4 py-4">
-          <Button variant="ghost" onClick={() => router.back()}><PublicIcon name="arrow-left" className="mr-2 size-4" />{t("back")}</Button>
-        </div>
-      </header>
+      <MainHeader />
 
       <main className="container mx-auto px-4 py-6">
+        <div className="mb-6">
+          <Button variant="ghost" onClick={() => router.back()}><PublicIcon name="arrow-left" className="mr-2 size-4" />{t("back")}</Button>
+        </div>
+
         <div className="mb-6">
           <h1 className="mb-2 text-3xl font-bold">{t("transactionDetails")}</h1>
           <div className="flex items-center gap-2">
@@ -461,10 +472,10 @@ function PageMessage({ onBack, title, message }: { onBack: () => void; title?: s
 
   return (
     <div className="min-h-screen bg-background pt-14">
-      <header className="app-header"><div className="container mx-auto px-4 py-4"><Button variant="ghost" onClick={onBack}><PublicIcon name="arrow-left" className="mr-2 size-4" />{t("back")}</Button></div></header>
+      <MainHeader />
       <main className="container mx-auto px-4 py-20 text-center">
+        <Button className="mb-8" variant="ghost" onClick={onBack}><PublicIcon name="arrow-left" className="mr-2 size-4" />{t("back")}</Button>
         {title && <h1 className="mb-3 text-2xl font-bold">{title}</h1>}
-        {!title && <Loader className="mx-auto mb-4" label={message} />}
         <p className="text-muted-foreground">{message}</p>
       </main>
     </div>

@@ -1,15 +1,13 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import Link from "next/link"
 
 import { BlockList } from "@/components/block-list"
-import { CurrencyConverter } from "@/components/currency-converter"
 import { Loader } from "@/components/loader"
+import { MainHeader } from "@/components/main-header"
 import { MempoolCanvas } from "@/components/mempool-canvas"
 import { NetworkStatus } from "@/components/network-status"
-import { SearchBar } from "@/components/search-bar"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { RecentBlockStrip } from "@/components/recent-block-strip"
 import { Separator } from "@/components/ui/separator"
 import { useLanguage } from "@/lib/i18n"
 import { apiFetch, type BlockApi } from "@/lib/mempool"
@@ -17,6 +15,7 @@ import { apiFetch, type BlockApi } from "@/lib/mempool"
 export default function BitcoinExplorer() {
   const [blocks, setBlocks] = useState<Parameters<typeof BlockList>[0]["blocks"]>([])
   const [error, setError] = useState("")
+  const [initialLoading, setInitialLoading] = useState(true)
   const { t } = useLanguage()
 
   const loadBlocks = useCallback(async () => {
@@ -33,6 +32,8 @@ export default function BitcoinExplorer() {
       setError("")
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : t("unableBlocks"))
+    } finally {
+      setInitialLoading(false)
     }
   }, [t])
 
@@ -42,25 +43,29 @@ export default function BitcoinExplorer() {
     return () => window.clearInterval(interval)
   }, [loadBlocks])
 
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-background pt-14">
+        <MainHeader />
+
+        <main className="grid min-h-[calc(100vh-3.5rem)] place-items-center">
+          <Loader size="lg" label={t("loadingLiveBlocks")} />
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background pt-14">
-      <header className="app-header">
-        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
-          <Link href="/" className="font-semibold tracking-tight">
-            utxo.lat
-          </Link>
+      <MainHeader />
 
-          <div className="flex items-center gap-1">
-            <CurrencyConverter />
-            <ThemeToggle />
-          </div>
+      <main className="w-full">
+        <div className="w-full px-4">
+          <RecentBlockStrip blocks={blocks} />
         </div>
-      </header>
 
-      <main className="mx-auto w-full max-w-2xl px-4 py-8">
-        <SearchBar />
-
-        <section className="mt-8" aria-labelledby="blocks-heading">
+        <div className="mx-auto w-full max-w-2xl px-4 py-8">
+        <section aria-labelledby="blocks-heading">
           <div className="flex items-end justify-between pb-3">
             <div>
               <h1 id="blocks-heading" className="text-sm font-semibold">
@@ -81,17 +86,12 @@ export default function BitcoinExplorer() {
 
           <Separator />
           {error && <p className="py-6 text-sm text-destructive">{error}. {t("tryAgainShortly")}</p>}
-          {!error && blocks.length === 0 && (
-            <div className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
-              <Loader size="sm" label={t("loadingLiveBlocks")} />
-              <span>{t("loadingLiveBlocks")}…</span>
-            </div>
-          )}
           <BlockList blocks={blocks} />
         </section>
 
-        <NetworkStatus />
-        <MempoolCanvas />
+          <NetworkStatus />
+          <MempoolCanvas />
+        </div>
       </main>
     </div>
   )

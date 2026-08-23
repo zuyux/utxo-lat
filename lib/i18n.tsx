@@ -19,6 +19,7 @@ const dictionaries = {
     openSource: "Código abierto",
     latest: "último",
     latestBlocks: "Últimos bloques",
+    recentlyMinedBlocks: "Bloques minados recientemente",
     bitcoinMainnet: "Red principal de Bitcoin",
     liveRefresh30: "En vivo · se actualiza cada 30 s",
     tryAgainShortly: "Inténtalo de nuevo en breve.",
@@ -251,6 +252,7 @@ const english: Record<TranslationKey, string> = {
   language: "Language",
   latest: "latest",
   latestBlocks: "Latest blocks",
+  recentlyMinedBlocks: "Recently mined blocks",
   bitcoinMainnet: "Bitcoin mainnet",
   liveRefresh30: "Live · refreshes every 30s",
   tryAgainShortly: "Please try again shortly.",
@@ -275,6 +277,7 @@ const portuguese: Record<TranslationKey, string> = {
   openSource: "Código aberto",
   latest: "mais recente",
   latestBlocks: "Blocos mais recentes",
+  recentlyMinedBlocks: "Blocos minerados recentemente",
   bitcoinMainnet: "Rede principal do Bitcoin",
   liveRefresh30: "Ao vivo · atualiza a cada 30 s",
   tryAgainShortly: "Tente novamente em instantes.",
@@ -716,17 +719,41 @@ function isLanguage(value: string | null): value is Language {
   return languages.some((language) => language.code === value)
 }
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<Language>("es")
+function languageFromLocale(locale: string | null | undefined): Language | null {
+  const languageCode = locale?.split("-")[0]?.toLowerCase()
+  if (!languageCode) return null
+  return isLanguage(languageCode) ? languageCode : null
+}
 
-  useEffect(() => {
+function getInitialLanguage(): Language {
+  if (typeof window === "undefined") return "es"
+
+  try {
     const storedLanguage = window.localStorage.getItem(storageKey)
-    if (isLanguage(storedLanguage)) setLanguageState(storedLanguage)
-  }, [])
+    if (isLanguage(storedLanguage)) return storedLanguage
+  } catch {
+    // Ignore storage failures and fall back to the device preference.
+  }
+
+  return (
+    window.navigator.languages
+      ?.map(languageFromLocale)
+      .find((language): language is Language => language !== null) ??
+    languageFromLocale(window.navigator.language) ??
+    "es"
+  )
+}
+
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const [language, setLanguageState] = useState<Language>(getInitialLanguage)
 
   const setLanguage = (nextLanguage: Language) => {
     setLanguageState(nextLanguage)
-    window.localStorage.setItem(storageKey, nextLanguage)
+    try {
+      window.localStorage.setItem(storageKey, nextLanguage)
+    } catch {
+      // The selected language still applies for this session.
+    }
     document.documentElement.lang = nextLanguage
   }
 
