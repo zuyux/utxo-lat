@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -67,36 +67,44 @@ export default function TransactionPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
 
+  const loadTransaction = useCallback(async (signal?: AbortSignal, showLoader = false) => {
+    if (showLoader) setLoading(true)
+    setError("")
+    try {
+      const tx = await apiFetch<MempoolTransaction>(`/tx/${txid}`, signal)
+      setTransaction(tx)
+      const [spends, height, cpfpInfo, history] = await Promise.allSettled([
+        apiFetch<Outspend[]>(`/tx/${txid}/outspends`, signal),
+        apiFetch<number>("/blocks/tip/height", signal),
+        apiFetch<CpfpInfo>(`/v1/cpfp/${txid}`, signal),
+        apiFetch<RbfHistory>(`/v1/tx/${txid}/rbf`, signal),
+      ])
+      if (spends.status === "fulfilled") setOutspends(spends.value)
+      if (height.status === "fulfilled") setTipHeight(height.value)
+      if (cpfpInfo.status === "fulfilled") setCpfp(cpfpInfo.value)
+      if (history.status === "fulfilled") setRbfHistory(history.value)
+    } catch (requestError) {
+      if (requestError instanceof DOMException && requestError.name === "AbortError") return
+      if (showLoader) setTransaction(null)
+      setError(requestError instanceof Error ? requestError.message : t("unableTransaction"))
+    } finally {
+      if (showLoader) setLoading(false)
+    }
+  }, [txid, t])
+
   useEffect(() => {
     const controller = new AbortController()
-    setLoading(true)
-    setError("")
+    loadTransaction(controller.signal, true)
 
-    const load = async () => {
-      try {
-        const tx = await apiFetch<MempoolTransaction>(`/tx/${txid}`, controller.signal)
-        setTransaction(tx)
-        const [spends, height, cpfpInfo, history] = await Promise.allSettled([
-          apiFetch<Outspend[]>(`/tx/${txid}/outspends`, controller.signal),
-          apiFetch<number>("/blocks/tip/height", controller.signal),
-          apiFetch<CpfpInfo>(`/v1/cpfp/${txid}`, controller.signal),
-          apiFetch<RbfHistory>(`/v1/tx/${txid}/rbf`, controller.signal),
-        ])
-        if (spends.status === "fulfilled") setOutspends(spends.value)
-        if (height.status === "fulfilled") setTipHeight(height.value)
-        if (cpfpInfo.status === "fulfilled") setCpfp(cpfpInfo.value)
-        if (history.status === "fulfilled") setRbfHistory(history.value)
-      } catch (requestError) {
-        if (requestError instanceof DOMException && requestError.name === "AbortError") return
-        setError(requestError instanceof Error ? requestError.message : t("unableTransaction"))
-      } finally {
-        setLoading(false)
-      }
+    const interval = window.setInterval(() => {
+      loadTransaction()
+    }, 5_000)
+
+    return () => {
+      controller.abort()
+      window.clearInterval(interval)
     }
-    load()
-
-    return () => controller.abort()
-  }, [txid, t])
+  }, [loadTransaction])
 
   const totals = useMemo(() => {
     const input = transaction?.vin.reduce((sum, vin) => sum + (vin.prevout?.value ?? 0), 0) ?? 0

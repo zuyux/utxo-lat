@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -73,12 +73,12 @@ type UtxoSortField = "value" | "age" | "confirmations" | "outpoint"
 type UtxoSortDirection = "asc" | "desc"
 type UtxoStatusFilter = "all" | "confirmed" | "unconfirmed"
 
-const fetchAddressDetail = async (address: string): Promise<AddressDetail> => {
-  const stats = await apiFetch<AddressStats>(`/address/${encodeURIComponent(address)}`)
+const fetchAddressDetail = async (address: string, signal?: AbortSignal): Promise<AddressDetail> => {
+  const stats = await apiFetch<AddressStats>(`/address/${encodeURIComponent(address)}`, signal)
   const [txResult, tipResult, utxoResult] = await Promise.allSettled([
-    apiFetch<MempoolTransaction[]>(`/address/${encodeURIComponent(address)}/txs`),
-    apiFetch<number>("/blocks/tip/height"),
-    apiFetch<AddressUtxo[]>(`/address/${encodeURIComponent(address)}/utxo`),
+    apiFetch<MempoolTransaction[]>(`/address/${encodeURIComponent(address)}/txs`, signal),
+    apiFetch<number>("/blocks/tip/height", signal),
+    apiFetch<AddressUtxo[]>(`/address/${encodeURIComponent(address)}/utxo`, signal),
   ])
   const txs = txResult.status === "fulfilled" ? txResult.value : []
   const tip = tipResult.status === "fulfilled" ? tipResult.value : 0
@@ -145,25 +145,36 @@ export default function AddressPage() {
   const [utxoSortDirection, setUtxoSortDirection] = useState<UtxoSortDirection>("desc")
   const [error, setError] = useState("")
 
-  useEffect(() => {
-    const fetchAddress = async () => {
-      setLoading(true)
-      setError("")
-      try {
-        const detail = await fetchAddressDetail(address)
-        setAddressDetail(detail)
-        setHasMoreTransactions(detail.transactions.filter((tx) => tx.blockHeight > 0).length >= 25)
-        setVisibleUtxos(50)
-      } catch (requestError) {
-        setAddressDetail(null)
-        setError(requestError instanceof Error ? requestError.message : t("unableAddress"))
-      } finally {
-        setLoading(false)
-      }
+  const loadAddress = useCallback(async (signal?: AbortSignal, showLoader = false) => {
+    if (showLoader) setLoading(true)
+    setError("")
+    try {
+      const detail = await fetchAddressDetail(address, signal)
+      setAddressDetail(detail)
+      setHasMoreTransactions(detail.transactions.filter((tx) => tx.blockHeight > 0).length >= 25)
+      if (showLoader) setVisibleUtxos(50)
+    } catch (requestError) {
+      if (requestError instanceof DOMException && requestError.name === "AbortError") return
+      if (showLoader) setAddressDetail(null)
+      setError(requestError instanceof Error ? requestError.message : t("unableAddress"))
+    } finally {
+      if (showLoader) setLoading(false)
     }
-
-    fetchAddress()
   }, [address, t])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    loadAddress(controller.signal, true)
+
+    const interval = window.setInterval(() => {
+      loadAddress()
+    }, 5_000)
+
+    return () => {
+      controller.abort()
+      window.clearInterval(interval)
+    }
+  }, [loadAddress])
 
   const copyToClipboard = async (text: string) => {
     try {

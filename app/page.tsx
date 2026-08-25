@@ -39,7 +39,7 @@ export default function BitcoinExplorer() {
 
   useEffect(() => {
     loadBlocks()
-    const interval = window.setInterval(loadBlocks, 30_000)
+    const interval = window.setInterval(loadBlocks, 5_000)
     return () => window.clearInterval(interval)
   }, [loadBlocks])
 
@@ -80,7 +80,7 @@ export default function BitcoinExplorer() {
                   <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#0000FF] dark:bg-[#00e5ff] opacity-60" />
                   <span className="relative inline-flex size-2 rounded-full bg-[#0000FF] dark:bg-[#00e5ff]" />
                 </span>
-                {t("liveRefresh30")}
+                {t("liveRefresh5")}
               </div>
             </div>
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -85,17 +85,17 @@ const mapTransaction = (tx: MempoolTransaction): BlockTransaction => {
   }
 }
 
-const fetchBlockDetail = async (identifier: string): Promise<BlockDetail> => {
+const fetchBlockDetail = async (identifier: string, signal?: AbortSignal): Promise<BlockDetail> => {
   const hash = /^\d+$/.test(identifier)
-    ? await apiFetchText(`/block-height/${identifier}`)
+    ? await apiFetchText(`/block-height/${identifier}`, signal)
     : identifier
   const [baseBlock, status, tip, transactions] = await Promise.all([
-    apiFetch<BlockApi>(`/v1/block/${hash}`),
-    apiFetch<{ next_best?: string }>(`/block/${hash}/status`),
-    apiFetch<number>("/blocks/tip/height"),
-    apiFetch<MempoolTransaction[]>(`/block/${hash}/txs/0`),
+    apiFetch<BlockApi>(`/v1/block/${hash}`, signal),
+    apiFetch<{ next_best?: string }>(`/block/${hash}/status`, signal),
+    apiFetch<number>("/blocks/tip/height", signal),
+    apiFetch<MempoolTransaction[]>(`/block/${hash}/txs/0`, signal),
   ])
-  const detailedBlock = await apiFetch<BlockApi[]>(`/v1/blocks/${baseBlock.height}`)
+  const detailedBlock = await apiFetch<BlockApi[]>(`/v1/blocks/${baseBlock.height}`, signal)
     .then((blocks) => blocks.find((candidate) => candidate.id === baseBlock.id))
     .catch(() => undefined)
   const block: BlockApi = {
@@ -145,22 +145,33 @@ export default function BlockPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState("")
 
-  useEffect(() => {
-    const fetchBlock = async () => {
-      setLoading(true)
-      setError("")
-      try {
-        setBlock(await fetchBlockDetail(identifier))
-      } catch (requestError) {
-        setBlock(null)
-        setError(requestError instanceof Error ? requestError.message : t("unableBlock"))
-      } finally {
-        setLoading(false)
-      }
+  const loadBlock = useCallback(async (signal?: AbortSignal, showLoader = false) => {
+    if (showLoader) setLoading(true)
+    setError("")
+    try {
+      setBlock(await fetchBlockDetail(identifier, signal))
+    } catch (requestError) {
+      if (requestError instanceof DOMException && requestError.name === "AbortError") return
+      if (showLoader) setBlock(null)
+      setError(requestError instanceof Error ? requestError.message : t("unableBlock"))
+    } finally {
+      if (showLoader) setLoading(false)
     }
-
-    fetchBlock()
   }, [identifier, t])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    loadBlock(controller.signal, true)
+
+    const interval = window.setInterval(() => {
+      loadBlock()
+    }, 5_000)
+
+    return () => {
+      controller.abort()
+      window.clearInterval(interval)
+    }
+  }, [loadBlock])
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)

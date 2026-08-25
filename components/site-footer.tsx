@@ -12,7 +12,7 @@ export function SiteFooter() {
   return (
     <footer className="border-t">
       <div className="mx-auto flex min-h-14 max-w-2xl flex-col items-center justify-between gap-2 px-4 py-3 text-xs text-muted-foreground sm:flex-row">
-        <p>MIT License · 2026 · <Link href="https://zuyux.org" target="_blank">zuyux</Link></p>
+        <p>MIT License · 2026 · <Link href="https://zuyux.xyz" target="_blank">zuyux</Link></p>
         <div className="flex items-center gap-3">
           <Watchlist trigger="icon" />
           <Select value={language} onValueChange={setLanguage}>
