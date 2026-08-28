@@ -143,6 +143,12 @@ export const currencies = [
 
 export type CurrencyCode = (typeof currencies)[number]["code"]
 export const currencyCodes = currencies.map((currency) => currency.code)
+export const currencyStorageKey = "current-currency"
+export const currencySelectionChangeEvent = "current-currency-change"
+
+export function isCurrencyCode(value: string | null): value is CurrencyCode {
+  return currencies.some((currency) => currency.code === value)
+}
 
 export const currencyCountries: Partial<Record<CurrencyCode, readonly string[]>> = {
   AED: ["United Arab Emirates", "UAE"],

@@ -15,18 +15,20 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-import { currencies, currencyCountries, type CurrencyCode } from "@/lib/currencies"
+import {
+  currencies,
+  currencyCountries,
+  currencySelectionChangeEvent,
+  currencyStorageKey,
+  isCurrencyCode,
+  type CurrencyCode,
+} from "@/lib/currencies"
 import { useLanguage } from "@/lib/i18n"
 
 type BitcoinUnit = "BTC" | "SAT"
 type PriceResponse = { time: number; source: string } & Partial<Record<CurrencyCode, number>>
 
-const currencyStorageKey = "current-currency"
 const satsPerBtc = 100_000_000
-
-function isCurrencyCode(value: string | null): value is CurrencyCode {
-  return currencies.some((currency) => currency.code === value)
-}
 
 function formatPrice(value: number, currency: CurrencyCode, locale: string, maximumFractionDigits = 0) {
   return new Intl.NumberFormat(locale, {
@@ -137,6 +139,7 @@ export function CurrencyConverter() {
     setSelectedCurrency(value)
     setCurrencySearch("")
     window.localStorage.setItem(currencyStorageKey, value)
+    window.dispatchEvent(new CustomEvent(currencySelectionChangeEvent, { detail: value }))
   }
 
   const handleBitcoinUnitToggle = () => {

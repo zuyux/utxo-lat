@@ -9,6 +9,12 @@ import { MempoolCanvas } from "@/components/mempool-canvas"
 import { NetworkStatus } from "@/components/network-status"
 import { RecentBlockStrip } from "@/components/recent-block-strip"
 import { Separator } from "@/components/ui/separator"
+import {
+  currencySelectionChangeEvent,
+  currencyStorageKey,
+  isCurrencyCode,
+  type CurrencyCode,
+} from "@/lib/currencies"
 import { useLanguage } from "@/lib/i18n"
 import { apiFetch, type BlockApi } from "@/lib/mempool"
 
@@ -23,6 +29,8 @@ interface MempoolWebSocketMessage {
   transactions?: RecentMempoolTransaction[]
 }
 
+type PriceResponse = { time: number; source: string } & Partial<Record<CurrencyCode, number>>
+
 const MEMPOOL_WS =
   process.env.NEXT_PUBLIC_MEMPOOL_WS_URL?.replace(/^http/, "ws").replace(/\/$/, "") ||
   ""
@@ -32,7 +40,8 @@ const MAX_LATEST_TRANSACTIONS = 12
 export default function BitcoinExplorer() {
   const [blocks, setBlocks] = useState<Parameters<typeof RecentBlockStrip>[0]["blocks"]>([])
   const [transactions, setTransactions] = useState<LatestTransaction[]>([])
-  const [usdRate, setUsdRate] = useState<number | null>(null)
+  const [prices, setPrices] = useState<PriceResponse | null>(null)
+  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>("USD")
   const [error, setError] = useState("")
   const [initialLoading, setInitialLoading] = useState(true)
   const { t } = useLanguage()
@@ -95,10 +104,32 @@ export default function BitcoinExplorer() {
     try {
       const response = await fetch("/api/prices", { cache: "no-store" })
       if (!response.ok) throw new Error("Price unavailable")
-      const prices = await response.json() as { USD?: number }
-      setUsdRate(typeof prices.USD === "number" ? prices.USD : null)
+      setPrices(await response.json() as PriceResponse)
     } catch {
-      setUsdRate(null)
+      setPrices(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    const syncSelectedCurrency = (value: string | null) => {
+      if (isCurrencyCode(value)) setSelectedCurrency(value)
+    }
+
+    syncSelectedCurrency(window.localStorage.getItem(currencyStorageKey))
+
+    const handleCurrencySelection = (event: Event) => {
+      syncSelectedCurrency((event as CustomEvent<string>).detail)
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === currencyStorageKey) syncSelectedCurrency(event.newValue)
+    }
+
+    window.addEventListener(currencySelectionChangeEvent, handleCurrencySelection)
+    window.addEventListener("storage", handleStorage)
+    return () => {
+      window.removeEventListener(currencySelectionChangeEvent, handleCurrencySelection)
+      window.removeEventListener("storage", handleStorage)
     }
   }, [])
 
@@ -223,7 +254,11 @@ export default function BitcoinExplorer() {
 
             <Separator />
             {error && <p className="py-6 text-sm text-destructive">{error}. {t("tryAgainShortly")}</p>}
-            <LatestTransactionList transactions={transactions} usdRate={usdRate} />
+            <LatestTransactionList
+              transactions={transactions}
+              fiatCurrency={selectedCurrency}
+              fiatRate={prices?.[selectedCurrency] ?? null}
+            />
           </section>
 
           <NetworkStatus />
