@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@10.34.5",
   "scripts": {
-    "build": "next build",
+    "build": "next build --webpack",
     "dev": "next dev",
     "dev:poll": "WATCHPACK_POLLING=true next dev",
     "lint": "eslint .",
@@ -69,6 +69,6 @@
     "eslint-config-next": "^16.3.1",
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   }
 }
