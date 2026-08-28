@@ -12,7 +12,13 @@ import { Loader } from "@/components/loader"
 import { MainHeader } from "@/components/main-header"
 import { PublicIcon } from "@/components/public-icon"
 import { useLanguage } from "@/lib/i18n"
-import { apiFetch, apiFetchText, type BlockApi, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
+import {
+  apiFetch,
+  apiFetchText,
+  type BlockApi,
+  type MempoolTransaction,
+  satsToBtc,
+} from "@/lib/mempool"
 
 interface BlockTransaction {
   txid: string
@@ -52,10 +58,14 @@ interface BlockDetail {
   miner: string
   confirmations: number
   transactions: BlockTransaction[]
+  rawHex: string | null
 }
 
 const HALVING_INTERVAL = 210_000
 const INITIAL_BLOCK_SUBSIDY = 5_000_000_000
+const GENESIS_BLOCK_HASH = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+const GENESIS_BLOCK_RAW_HEX =
+  "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c0101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000"
 
 const formatShortHashEnd = (hash: string, unavailable: string) => hash ? `...${hash.slice(-16)}` : unavailable
 
@@ -85,8 +95,17 @@ const mapTransaction = (tx: MempoolTransaction): BlockTransaction => {
   }
 }
 
+const groupHex = (hex: string) => hex.replace(/(.{2})/g, "$1 ").trim()
+
+const hexToAsciiString = (hex: string) => {
+  const bytes = hex.match(/.{2}/g) ?? []
+  return bytes.map((byte) => String.fromCharCode(Number.parseInt(byte, 16))).join("")
+}
+
 const fetchBlockDetail = async (identifier: string, signal?: AbortSignal): Promise<BlockDetail> => {
-  const hash = /^\d+$/.test(identifier)
+  const hash = identifier === "0"
+    ? GENESIS_BLOCK_HASH
+    : /^\d+$/.test(identifier)
     ? await apiFetchText(`/block-height/${identifier}`, signal)
     : identifier
   const [baseBlock, status, tip, transactions] = await Promise.all([
@@ -95,9 +114,12 @@ const fetchBlockDetail = async (identifier: string, signal?: AbortSignal): Promi
     apiFetch<number>("/blocks/tip/height", signal),
     apiFetch<MempoolTransaction[]>(`/block/${hash}/txs/0`, signal),
   ])
-  const detailedBlock = await apiFetch<BlockApi[]>(`/v1/blocks/${baseBlock.height}`, signal)
-    .then((blocks) => blocks.find((candidate) => candidate.id === baseBlock.id))
-    .catch(() => undefined)
+  const [detailedBlock, rawHex] = await Promise.all([
+    apiFetch<BlockApi[]>(`/v1/blocks/${baseBlock.height}`, signal)
+      .then((blocks) => blocks.find((candidate) => candidate.id === baseBlock.id))
+      .catch(() => undefined),
+    Promise.resolve(baseBlock.height === 0 ? GENESIS_BLOCK_RAW_HEX : null),
+  ])
   const block: BlockApi = {
     ...baseBlock,
     extras: detailedBlock?.extras ?? baseBlock.extras,
@@ -132,6 +154,7 @@ const fetchBlockDetail = async (identifier: string, signal?: AbortSignal): Promi
     miner: block.extras?.pool?.name || "Unknown pool",
     confirmations: Math.max(0, tip - block.height + 1),
     transactions: transactions.map(mapTransaction),
+    rawHex,
   }
 }
 
@@ -565,6 +588,37 @@ export default function BlockPage() {
                     <div className="text-sm bg-muted p-2 rounded">{block.weight.toLocaleString(locale)} WU</div>
                   </div>
                 </div>
+                {block.rawHex && (
+                  <div className="space-y-2 border-t pt-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="text-sm font-medium">{t("genesisRawData")}</h3>
+                        <p className="text-xs text-muted-foreground">
+                          {block.rawHex.length / 2} {t("bytes")} · {t("hexSerialization")}
+                        </p>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => copyToClipboard(block.rawHex!)}>
+                        <PublicIcon name="copy" className="mr-2 h-3.5 w-3.5" />
+                        {t("copyRawHex")}
+                      </Button>
+                    </div>
+                    <pre className="max-h-72 overflow-auto rounded bg-muted p-3 text-xs leading-6">
+                      <code className="whitespace-pre-wrap break-all font-mono">{groupHex(block.rawHex)}</code>
+                    </pre>
+                    <div className="space-y-2 pt-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <h4 className="text-sm font-medium">{t("stringView")}</h4>
+                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(hexToAsciiString(block.rawHex!))}>
+                          <PublicIcon name="copy" className="mr-2 h-3.5 w-3.5" />
+                          {t("copyString")}
+                        </Button>
+                      </div>
+                      <pre className="max-h-48 overflow-auto rounded bg-muted p-3 text-xs leading-6">
+                        <code className="whitespace-pre-wrap break-all font-mono">{hexToAsciiString(block.rawHex)}</code>
+                      </pre>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
