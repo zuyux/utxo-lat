@@ -21,7 +21,7 @@ const dictionaries = {
     latestBlocks: "Últimos bloques",
     recentlyMinedBlocks: "Bloques minados recientemente",
     bitcoinMainnet: "Red principal de Bitcoin",
-    liveRefresh5: "En vivo · se actualiza cada 5 s",
+    liveRefresh5: "En vivo",
     tryAgainShortly: "Inténtalo de nuevo en breve.",
     loadingLiveBlocks: "Cargando bloques en vivo",
     unknownPool: "Pool desconocido",
@@ -277,7 +277,7 @@ const english: Record<TranslationKey, string> = {
   latestBlocks: "Latest blocks",
   recentlyMinedBlocks: "Recently mined blocks",
   bitcoinMainnet: "Bitcoin mainnet",
-  liveRefresh5: "Live · refreshes every 5s",
+  liveRefresh5: "Live",
   tryAgainShortly: "Please try again shortly.",
   loadingLiveBlocks: "Loading live blocks",
   unknownPool: "Unknown pool",
@@ -304,7 +304,7 @@ const portuguese: Record<TranslationKey, string> = {
   latestBlocks: "Blocos mais recentes",
   recentlyMinedBlocks: "Blocos minerados recentemente",
   bitcoinMainnet: "Rede principal do Bitcoin",
-  liveRefresh5: "Ao vivo · atualiza a cada 5 s",
+  liveRefresh5: "Ao vivo",
   tryAgainShortly: "Tente novamente em instantes.",
   loadingLiveBlocks: "Carregando blocos ao vivo",
   unknownPool: "Pool desconhecido",
@@ -795,8 +795,10 @@ function languageFromLocale(locale: string | null | undefined): Language | null 
 }
 
 function getInitialLanguage(): Language {
-  if (typeof window === "undefined") return "es"
+  return "es"
+}
 
+function getPreferredLanguage(): Language {
   try {
     const storedLanguage = window.localStorage.getItem(storageKey)
     if (isLanguage(storedLanguage)) return storedLanguage
@@ -829,6 +831,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.lang = language
   }, [language])
+
+  useEffect(() => {
+    setLanguageState(getPreferredLanguage())
+  }, [])
 
   const value = useMemo<LanguageContextValue>(() => ({
     language,

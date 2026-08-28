@@ -25,6 +25,7 @@ interface MempoolStats {
   vsize: number
   total_fee: number
   fee_histogram: Array<[number, number]>
+  fallback?: boolean
 }
 
 interface FeeRecommendations {
@@ -145,6 +146,8 @@ export function MempoolCanvas() {
   const [error, setError] = useState("")
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [isDarkTheme, setIsDarkTheme] = useState(false)
+  const isFallback = Boolean(stats?.fallback || fees?.fallback)
+  const hasHistogram = Boolean(stats?.fee_histogram.length)
 
   const colors = useMemo(
     () => ["#ff0000", "#fbbf24", isDarkTheme ? "#00e5ff" : "#0000FF", "#38bdf8"] as const,
@@ -228,7 +231,11 @@ export function MempoolCanvas() {
           setStats(statsResult.value)
           setFees(feesResult.status === "fulfilled" ? feesResult.value : estimateFeesFromHistogram(statsResult.value))
           setLastUpdated(new Date())
-          setError(feesResult.status === "rejected" ? t("liveDataUnavailable") : "")
+          setError(
+            statsResult.value.fallback || feesResult.status === "rejected" || feesResult.value.fallback
+              ? t("liveDataUnavailable")
+              : "",
+          )
           return
         }
 
@@ -303,12 +310,14 @@ export function MempoolCanvas() {
         <div>
           <div className="flex items-center gap-2">
             <h2 id="mempool-heading" className="text-sm font-semibold">{t("mempool")}</h2>
-            {!error && lastUpdated && (
+            {!isFallback && !error && lastUpdated && (
               <span className="size-1.5 bg-[#0000FF] dark:bg-[#00e5ff]" title={`${t("updated")} ${lastUpdated.toLocaleTimeString(locale)}`} />
             )}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {error
+            {isFallback
+              ? t("liveDataUnavailable")
+              : error
               ? stats
                 ? `${stats.count.toLocaleString(locale)} ${t("unconfirmedTransactions")} · ${error}`
                 : `${t("liveDataUnavailable")}: ${error}`
@@ -320,11 +329,11 @@ export function MempoolCanvas() {
 
         <div className="flex gap-4 text-right">
           <div>
-            <p className="text-xs font-medium">{stats ? `${(stats.vsize / 1_000_000).toFixed(1)} vMB` : "—"}</p>
+            <p className="text-xs font-medium">{stats && !stats.fallback ? `${(stats.vsize / 1_000_000).toFixed(1)} vMB` : "—"}</p>
             <p className="text-[10px] text-muted-foreground">{t("waiting")}</p>
           </div>
           <div>
-            <p className="text-xs font-medium">{stats ? `${(stats.total_fee / 100_000_000).toFixed(4)} BTC` : "—"}</p>
+            <p className="text-xs font-medium">{stats && !stats.fallback ? `${(stats.total_fee / 100_000_000).toFixed(4)} BTC` : "—"}</p>
             <p className="text-[10px] text-muted-foreground">{t("queuedFees")}</p>
           </div>
         </div>
@@ -350,12 +359,17 @@ export function MempoolCanvas() {
         </p>
         <canvas
           ref={canvasRef}
-          className="block w-full cursor-crosshair"
+          className="block min-h-12 w-full cursor-crosshair"
           role="img"
           aria-label={t("mempoolCanvasAria")}
           onPointerMove={handlePointerMove}
           onPointerLeave={() => setHovered(null)}
         />
+        {!hasHistogram && (
+          <div className="absolute inset-x-0 top-10 grid min-h-12 place-items-center text-xs text-muted-foreground">
+            {t("liveDataUnavailable")}
+          </div>
+        )}
         {hovered && (
           <div
             className="pointer-events-none absolute z-20 w-[170px] border bg-popover px-2.5 py-2 text-[10px] shadow-md"

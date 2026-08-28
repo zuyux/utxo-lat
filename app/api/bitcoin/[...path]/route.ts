@@ -143,6 +143,10 @@ function fallbackMempool() {
   })
 }
 
+function fallbackRecentTransactions() {
+  return fallbackJson([])
+}
+
 function fallbackDifficultyAdjustmentStatic() {
   return fallbackJson({
     progressPercent: 0,
@@ -297,6 +301,7 @@ export async function GET(
 
   if (path === "v1/blocks") return fallbackJson([])
   if (path === "mempool") return fallbackMempool()
+  if (path === "mempool/recent") return fallbackRecentTransactions()
   if (path === "v1/difficulty-adjustment") return fallbackDifficultyAdjustmentStatic()
   if (path === "v1/mining/hashrate/3d") return fallbackHashrateStatic()
 

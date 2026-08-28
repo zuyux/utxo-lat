@@ -8,6 +8,7 @@ import { useLanguage } from "@/lib/i18n"
 interface MiningStats {
   currentHashrate: number
   currentDifficulty: number
+  fallback?: boolean
 }
 
 interface DifficultyAdjustment {
@@ -16,6 +17,7 @@ interface DifficultyAdjustment {
   estimatedRetargetDate: number
   remainingBlocks: number
   remainingTime: number
+  fallback?: boolean
 }
 
 function formatHashrate(hashrate: number) {
@@ -47,6 +49,7 @@ export function NetworkStatus() {
   const [mining, setMining] = useState<MiningStats | null>(null)
   const [adjustment, setAdjustment] = useState<DifficultyAdjustment | null>(null)
   const [error, setError] = useState("")
+  const isFallback = Boolean(mining?.fallback || adjustment?.fallback)
 
   useEffect(() => {
     let active = true
@@ -60,7 +63,7 @@ export function NetworkStatus() {
         if (!active) return
         setMining(miningData)
         setAdjustment(adjustmentData)
-        setError("")
+        setError(miningData.fallback || adjustmentData.fallback ? t("liveDataUnavailable") : "")
       } catch (requestError) {
         if (!active) return
         setError(requestError instanceof Error ? requestError.message : t("unableNetwork"))
@@ -78,25 +81,31 @@ export function NetworkStatus() {
   const metrics = [
     {
       label: t("hashrate"),
-      value: mining ? formatHashrate(mining.currentHashrate) : "—",
-      detail: t("threeDayEstimate"),
+      value: mining && !mining.fallback ? formatHashrate(mining.currentHashrate) : "—",
+      detail: mining?.fallback ? t("unavailable") : t("threeDayEstimate"),
     },
     {
       label: t("difficulty"),
-      value: mining ? formatDifficulty(mining.currentDifficulty) : "—",
-      detail: t("currentTarget"),
+      value: mining && !mining.fallback ? formatDifficulty(mining.currentDifficulty) : "—",
+      detail: mining?.fallback ? t("unavailable") : t("currentTarget"),
     },
     {
       label: t("expectedAdjustment"),
-      value: adjustment
+      value: adjustment && !adjustment.fallback
         ? `${adjustment.difficultyChange >= 0 ? "+" : ""}${adjustment.difficultyChange.toFixed(2)}%`
         : "—",
-      detail: adjustment ? `${adjustment.progressPercent.toFixed(1)}% ${t("throughEpoch")}` : t("calculating"),
+      detail: adjustment?.fallback
+        ? t("unavailable")
+        : adjustment
+          ? `${adjustment.progressPercent.toFixed(1)}% ${t("throughEpoch")}`
+          : t("calculating"),
     },
     {
       label: t("untilRetarget"),
-      value: adjustment ? formatRemainingTime(adjustment.remainingTime) : "—",
-      detail: adjustment
+      value: adjustment && !adjustment.fallback ? formatRemainingTime(adjustment.remainingTime) : "—",
+      detail: adjustment?.fallback
+        ? t("unavailable")
+        : adjustment
         ? `${adjustment.remainingBlocks.toLocaleString(locale)} ${t("blocks")} · ${new Date(adjustment.estimatedRetargetDate).toLocaleDateString(locale, {
             month: "short",
             day: "numeric",
@@ -111,7 +120,7 @@ export function NetworkStatus() {
         <div>
           <div className="flex items-center gap-2">
             <h2 id="network-heading" className="text-sm font-semibold">{t("networkStatus")}</h2>
-            {!error && mining && adjustment && <span className="size-1.5 bg-[#0000FF] dark:bg-[#00e5ff]" />}
+            {!isFallback && !error && mining && adjustment && <span className="size-1.5 bg-[#0000FF] dark:bg-[#00e5ff]" />}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {error ? `${t("liveDataUnavailable")}: ${error}` : t("miningRetarget")}

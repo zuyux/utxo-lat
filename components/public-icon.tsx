@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 const iconPaths = {
   "arrow-left": "/arrow-left.svg",
   "arrow-right": "/arrow-right.svg",
+  bitcoin: "/bitcoin.svg",
   blocks: "/blocks.svg",
   check: "/check.svg",
   chevronLeft: "/chevronLeft.svg",
