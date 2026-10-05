@@ -213,7 +213,7 @@ export default function BitcoinExplorer({ children }: { children?: ReactNode }) 
 
   if (initialLoading) {
     return (
-      <div className="min-h-screen bg-background pt-14">
+      <div className="min-h-screen bg-background pt-28 sm:pt-14">
         <MainHeader />
 
         <main>
@@ -227,7 +227,7 @@ export default function BitcoinExplorer({ children }: { children?: ReactNode }) 
   }
 
   return (
-    <div className="min-h-screen bg-background pt-14">
+    <div className="min-h-screen bg-background pt-28 sm:pt-14">
       <MainHeader />
 
       <main className="w-full">

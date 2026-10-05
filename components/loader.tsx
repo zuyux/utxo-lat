@@ -231,7 +231,7 @@ export function Loader({ className, size = "md", label = "Loading" }: LoaderProp
       <span className="sr-only">{label}</span>
       <svg
         aria-hidden="true"
-        className="size-full"
+        className="size-full brightness-0 dark:brightness-100"
         viewBox={`0 0 ${asset.w} ${asset.h}`}
         xmlns="http://www.w3.org/2000/svg"
       >

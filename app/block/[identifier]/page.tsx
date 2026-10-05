@@ -231,7 +231,7 @@ export default function BlockPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background pt-14">
+      <div className="min-h-screen bg-background pt-28 sm:pt-14">
         <MainHeader />
 
         <main className="grid min-h-[calc(100vh-3.5rem)] place-items-center">
@@ -243,7 +243,7 @@ export default function BlockPage() {
 
   if (!block) {
     return (
-      <div className="min-h-screen bg-background pt-14">
+      <div className="min-h-screen bg-background pt-28 sm:pt-14">
         <MainHeader />
         <div className="container mx-auto px-4 py-8">
           <Button className="mb-8" variant="ghost" onClick={() => router.back()}>
@@ -260,7 +260,7 @@ export default function BlockPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-14">
+    <div className="min-h-screen bg-background pt-28 sm:pt-14">
       <MainHeader />
 
       <div className="container mx-auto px-4 py-6">

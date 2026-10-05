@@ -142,7 +142,7 @@ export default function TransactionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background pt-14">
+      <div className="min-h-screen bg-background pt-28 sm:pt-14">
         <MainHeader />
 
         <main className="grid min-h-[calc(100vh-3.5rem)] place-items-center">
@@ -173,7 +173,7 @@ export default function TransactionPage() {
   })
 
   return (
-    <div className="min-h-screen bg-background pt-14">
+    <div className="min-h-screen bg-background pt-28 sm:pt-14">
       <MainHeader />
 
       <main className="container mx-auto px-4 py-6">
@@ -507,7 +507,7 @@ function PageMessage({ onBack, title, message }: { onBack: () => void; title?: s
   const { t } = useLanguage()
 
   return (
-    <div className="min-h-screen bg-background pt-14">
+    <div className="min-h-screen bg-background pt-28 sm:pt-14">
       <MainHeader />
       <main className="container mx-auto px-4 py-20 text-center">
         <Button className="mb-8" variant="ghost" onClick={onBack}><PublicIcon name="arrow-left" className="mr-2 size-4" />{t("back")}</Button>

@@ -11,7 +11,7 @@ export default function Loading() {
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
       <LanguageProvider>
-        <div className="min-h-screen bg-background pt-14">
+        <div className="min-h-screen bg-background pt-28 sm:pt-14">
           <header className="app-header">
             <div className="grid h-14 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4">
               <Link href="/" className="font-title font-semibold tracking-tight">

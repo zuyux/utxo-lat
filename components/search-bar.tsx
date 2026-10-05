@@ -120,24 +120,24 @@ export function SearchBar({ className }: SearchBarProps) {
       <form
         onSubmit={handleSearch}
         className={cn(
-          "flex h-10 items-center gap-3 rounded-[14px] border border-black/50 bg-transparent p-1.5 shadow-none focus-within:border-black/70 dark:border-white/50 dark:focus-within:border-white/70",
+          "flex h-11 min-w-0 items-center sm:h-10 gap-3 rounded-[14px] border border-black/50 bg-transparent p-1.5 shadow-none focus-within:border-black/70 dark:border-white/50 dark:focus-within:border-white/70",
           className
         )}
       >
-        <PublicIcon name="search" className="ml-3 size-4 text-foreground/50" />
+        <PublicIcon name="search" className="ml-2 size-4 shrink-0 text-foreground/50" />
         <Input
           type="text"
-          placeholder={isTestnet ? "Search testnet transactions, addresses, and blocks" : "Search transactions, addresses, domains, and blocks"}
+          placeholder={t("searchPlaceholder")}
           aria-label={t("searchAria")}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onFocus={() => setOpen(true)}
-          className="h-7 flex-1 border-0 bg-transparent px-0 text-[15px] text-foreground shadow-none outline-none placeholder:text-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-base sm:text-[15px] text-foreground shadow-none outline-none placeholder:text-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0"
         />
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="flex h-7 shrink-0 items-center gap-1 rounded-lg bg-transparent px-2.5 text-xs text-foreground/50 transition-colors hover:bg-foreground/10 hover:text-foreground"
+          className="hidden h-7 shrink-0 sm:flex items-center gap-1 rounded-lg bg-transparent px-2.5 text-xs text-foreground/50 transition-colors hover:bg-foreground/10 hover:text-foreground"
           aria-label="Open command search"
         >
           <PublicIcon name="command" className="size-3.5" />
@@ -147,7 +147,7 @@ export function SearchBar({ className }: SearchBarProps) {
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder={isTestnet ? "Search testnet transactions, addresses, and blocks" : "Search transactions, addresses, domains, and blocks"}
+          placeholder={t("searchPlaceholder")}
           value={paletteQuery}
           onValueChange={setPaletteQuery}
           onKeyDown={(event) => {

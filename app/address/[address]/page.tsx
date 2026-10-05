@@ -29,6 +29,7 @@ import { MainHeader } from "@/components/main-header"
 import { PublicIcon } from "@/components/public-icon"
 import { Watchlist } from "@/components/watchlist"
 import { useLanguage } from "@/lib/i18n"
+import { retryRequest } from "@/lib/retry"
 import { type BitcoinUnit, formatBitcoinAmount, type MempoolTransaction } from "@/lib/mempool"
 
 interface AddressTransaction {
@@ -75,7 +76,10 @@ type UtxoSortDirection = "asc" | "desc"
 type UtxoStatusFilter = "all" | "confirmed" | "unconfirmed"
 
 const fetchAddressDetail = async (address: string, signal: AbortSignal | undefined, apiFetch: typeof import("@/lib/mempool").apiFetch): Promise<AddressDetail> => {
-  const stats = await apiFetch<AddressStats>(`/address/${encodeURIComponent(address)}`, signal)
+  const stats = await retryRequest(
+    () => apiFetch<AddressStats>(`/address/${encodeURIComponent(address)}`, signal),
+    signal,
+  )
   const [txResult, tipResult, utxoResult] = await Promise.allSettled([
     apiFetch<MempoolTransaction[]>(`/address/${encodeURIComponent(address)}/txs`, signal),
     apiFetch<number>("/blocks/tip/height", signal),
@@ -153,29 +157,33 @@ export default function AddressPage() {
     setError("")
     try {
       const detail = await fetchAddressDetail(address, signal, apiFetch)
+      if (signal?.aborted) return
       setAddressDetail(detail)
       setHasMoreTransactions(detail.transactions.filter((tx) => tx.blockHeight > 0).length >= 25)
       if (showLoader) setVisibleUtxos(50)
     } catch (requestError) {
-      if (requestError instanceof DOMException && requestError.name === "AbortError") return
+      if (signal?.aborted || (requestError instanceof Error && requestError.name === "AbortError")) return
       if (showLoader) setAddressDetail(null)
       setError(requestError instanceof Error ? requestError.message : t("unableAddress"))
     } finally {
-      if (showLoader) setLoading(false)
+      if (showLoader && !signal?.aborted) setLoading(false)
     }
   }, [address, t, apiFetch])
 
   useEffect(() => {
     const controller = new AbortController()
-    loadAddress(controller.signal, true)
-
-    const interval = window.setInterval(() => {
-      loadAddress()
-    }, 5_000)
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined
+    const refresh = async (showLoader: boolean) => {
+      await loadAddress(controller.signal, showLoader)
+      if (!controller.signal.aborted) {
+        refreshTimer = setTimeout(() => void refresh(false), 5_000)
+      }
+    }
+    void refresh(true)
 
     return () => {
       controller.abort()
-      window.clearInterval(interval)
+      clearTimeout(refreshTimer)
     }
   }, [loadAddress])
 
@@ -235,7 +243,7 @@ export default function AddressPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background pt-14">
+      <div className="min-h-screen bg-background pt-28 sm:pt-14">
         <MainHeader />
 
         <main className="grid min-h-[calc(100vh-3.5rem)] place-items-center">
@@ -247,7 +255,7 @@ export default function AddressPage() {
 
   if (!addressDetail) {
     return (
-      <div className="min-h-screen bg-background pt-14">
+      <div className="min-h-screen bg-background pt-28 sm:pt-14">
         <MainHeader />
 
         <div className="container mx-auto px-4 py-8">
@@ -296,7 +304,7 @@ export default function AddressPage() {
   const formatAmount = (sats: number) => formatBitcoinAmount(sats, bitcoinUnit, locale).replace("BTC", coinUnit)
 
   return (
-    <div className="min-h-screen bg-background pt-14">
+    <div className="min-h-screen bg-background pt-28 sm:pt-14">
       <MainHeader />
 
       <div className="container mx-auto px-4 py-6">

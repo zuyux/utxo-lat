@@ -15,7 +15,8 @@ const storageKey = "utxo-language"
 
 const dictionaries = {
   es: {
-    explorerHeading: "Explorador de Bitcoin y UTXO",
+    explorerTagline: "Explorador de Bitcoin",
+    explorerHeading: "Explorador de Bitcoin",
     explorerIntro: "Consulta transacciones, bloques, saldos y salidas sin gastar. Sigue las confirmaciones, las comisiones y el mempool de Bitcoin en tiempo real.",
     language: "Idioma",
     openSource: "Código abierto",
@@ -280,6 +281,7 @@ type TranslationKey = keyof typeof dictionaries.es
 
 const english: Record<TranslationKey, string> = {
   ...dictionaries.es,
+  explorerTagline: "Easy Bitcoin Explorer",
   explorerHeading: "Bitcoin and UTXO Explorer",
   explorerIntro: "Explore transactions, blocks, balances, and unspent outputs. Track Bitcoin confirmations, fees, and mempool activity in real time.",
   language: "Language",
@@ -308,6 +310,7 @@ const english: Record<TranslationKey, string> = {
 
 const portuguese: Record<TranslationKey, string> = {
   ...dictionaries.es,
+  explorerTagline: "Explorador de Bitcoin fácil",
   explorerHeading: "Explorador de Bitcoin e UTXO",
   explorerIntro: "Consulte transações, blocos, saldos e saídas não gastas. Acompanhe confirmações, taxas e o mempool do Bitcoin em tempo real.",
   language: "Idioma",
