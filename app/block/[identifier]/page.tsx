@@ -1,5 +1,6 @@
 "use client"
 
+import { useExplorerNetwork } from "@/lib/explorer-network"
 import { useCallback, useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,8 +14,6 @@ import { MainHeader } from "@/components/main-header"
 import { PublicIcon } from "@/components/public-icon"
 import { useLanguage } from "@/lib/i18n"
 import {
-  apiFetch,
-  apiFetchText,
   type BlockApi,
   type MempoolTransaction,
   satsToBtc,
@@ -102,8 +101,8 @@ const hexToAsciiString = (hex: string) => {
   return bytes.map((byte) => String.fromCharCode(Number.parseInt(byte, 16))).join("")
 }
 
-const fetchBlockDetail = async (identifier: string, signal?: AbortSignal): Promise<BlockDetail> => {
-  const hash = identifier === "0"
+const fetchBlockDetail = async (identifier: string, signal: AbortSignal | undefined, apiFetch: typeof import("@/lib/mempool").apiFetch, apiFetchText: typeof import("@/lib/mempool").apiFetchText, isTestnet: boolean): Promise<BlockDetail> => {
+  const hash = identifier === "0" && !isTestnet
     ? GENESIS_BLOCK_HASH
     : /^\d+$/.test(identifier)
     ? await apiFetchText(`/block-height/${identifier}`, signal)
@@ -118,7 +117,7 @@ const fetchBlockDetail = async (identifier: string, signal?: AbortSignal): Promi
     apiFetch<BlockApi[]>(`/v1/blocks/${baseBlock.height}`, signal)
       .then((blocks) => blocks.find((candidate) => candidate.id === baseBlock.id))
       .catch(() => undefined),
-    Promise.resolve(baseBlock.height === 0 ? GENESIS_BLOCK_RAW_HEX : null),
+    Promise.resolve(baseBlock.height === 0 && !isTestnet ? GENESIS_BLOCK_RAW_HEX : null),
   ])
   const block: BlockApi = {
     ...baseBlock,
@@ -160,6 +159,8 @@ const fetchBlockDetail = async (identifier: string, signal?: AbortSignal): Promi
 
 export default function BlockPage() {
   const params = useParams()
+  const { isTestnet, prefix, apiFetch, apiFetchText } = useExplorerNetwork()
+  const coinUnit = isTestnet ? "tBTC" : "BTC"
   const router = useRouter()
   const { dateLocale, locale, t } = useLanguage()
   const identifier = params.identifier as string
@@ -172,7 +173,7 @@ export default function BlockPage() {
     if (showLoader) setLoading(true)
     setError("")
     try {
-      setBlock(await fetchBlockDetail(identifier, signal))
+      setBlock(await fetchBlockDetail(identifier, signal, apiFetch, apiFetchText, Boolean(prefix)))
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === "AbortError") return
       if (showLoader) setBlock(null)
@@ -180,7 +181,7 @@ export default function BlockPage() {
     } finally {
       if (showLoader) setLoading(false)
     }
-  }, [identifier, t])
+  }, [identifier, t, apiFetch, apiFetchText, prefix])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -202,7 +203,7 @@ export default function BlockPage() {
   }
 
   const navigateToBlock = (height: number) => {
-    router.push(`/block/${height}`)
+    router.push(`${prefix}/block/${height}`)
   }
 
   const loadMoreTransactions = async () => {
@@ -378,11 +379,11 @@ export default function BlockPage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">{t("blockReward")}</span>
-                    <span className="font-medium">{block.blockReward} BTC</span>
+                    <span className="font-medium">{block.blockReward} {coinUnit}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">{t("totalFees")}</span>
-                    <span className="font-medium">{block.totalFees ? `${block.totalFees} BTC` : t("unavailable")}</span>
+                    <span className="font-medium">{block.totalFees ? `${block.totalFees} ${coinUnit}` : t("unavailable")}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -454,7 +455,7 @@ export default function BlockPage() {
                   />
                   <BlockMetric
                     label={t("transferredValue")}
-                    value={block.totalTransferred ? `${block.totalTransferred} BTC` : t("unavailable")}
+                    value={block.totalTransferred ? `${block.totalTransferred} ${coinUnit}` : t("unavailable")}
                     detail={t("sumAllOutputs")}
                   />
                 </div>
@@ -510,16 +511,16 @@ export default function BlockPage() {
                           <Button variant="ghost" size="icon" className="size-8" onClick={() => copyToClipboard(tx.txid)} aria-label={t("copyTxId")}>
                             <PublicIcon name="copy" className="size-3.5" />
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => router.push(`/tx/${tx.txid}`)}>
+                          <Button variant="outline" size="sm" onClick={() => router.push(`${prefix}/tx/${tx.txid}`)}>
                             {t("details")} <PublicIcon name="externalLink" className="ml-1.5 size-3.5" />
                           </Button>
                         </div>
                       </div>
 
                       <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 border-t pt-4 text-sm md:grid-cols-3 lg:grid-cols-6">
-                        <TransactionMetric label={t("totalInput")} value={tx.totalInput ? `${tx.totalInput} BTC` : t("newCoins")} />
-                        <TransactionMetric label={t("totalOutput")} value={`${tx.totalOutput} BTC`} />
-                        <TransactionMetric label={t("fee")} value={tx.isCoinbase ? t("noFee") : `${tx.fee} BTC`} />
+                        <TransactionMetric label={t("totalInput")} value={tx.totalInput ? `${tx.totalInput} ${coinUnit}` : t("newCoins")} />
+                        <TransactionMetric label={t("totalOutput")} value={`${tx.totalOutput} ${coinUnit}`} />
+                        <TransactionMetric label={t("fee")} value={tx.isCoinbase ? t("noFee") : `${tx.fee} ${coinUnit}`} />
                         <TransactionMetric label={t("feeRate")} value={tx.isCoinbase ? "—" : `${tx.feeRate} sat/vB`} />
                         <TransactionMetric label={t("size")} value={`${tx.size.toLocaleString(locale)} bytes`} />
                         <TransactionMetric

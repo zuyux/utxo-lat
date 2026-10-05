@@ -15,7 +15,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command"
 import { toast } from "sonner"
-import { apiFetch } from "@/lib/mempool"
+import { useExplorerNetwork } from "@/lib/explorer-network"
 import { PublicIcon } from "@/components/public-icon"
 import { useLanguage } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
@@ -59,6 +59,7 @@ export function SearchBar({ className }: SearchBarProps) {
   const [query, setQuery] = useState("")
   const [paletteQuery, setPaletteQuery] = useState("")
   const [open, setOpen] = useState(false)
+  const { prefix, isTestnet, apiFetch } = useExplorerNetwork()
   const router = useRouter()
   const { t } = useLanguage()
 
@@ -81,18 +82,18 @@ export function SearchBar({ className }: SearchBarProps) {
     if (trimmedQuery.length === 64 && /^[a-fA-F0-9]+$/.test(trimmedQuery)) {
       try {
         await apiFetch(`/block/${trimmedQuery}`)
-        router.push(`/block/${trimmedQuery}`)
+        router.push(`${prefix}/block/${trimmedQuery}`)
       } catch {
-        router.push(`/tx/${trimmedQuery}`)
+        router.push(`${prefix}/tx/${trimmedQuery}`)
       }
     } else if (/^\d+$/.test(trimmedQuery)) {
-      router.push(`/block/${trimmedQuery}`)
+      router.push(`${prefix}/block/${trimmedQuery}`)
     } else if (
-      /^(1|3|bc1|BC1)/.test(trimmedQuery) &&
+      (isTestnet ? /^(m|n|2|tb1|TB1)/ : /^(1|3|bc1|BC1)/).test(trimmedQuery) &&
       trimmedQuery.length >= 26 &&
       trimmedQuery.length <= 90
     ) {
-      router.push(`/address/${encodeURIComponent(trimmedQuery)}`)
+      router.push(`${prefix}/address/${encodeURIComponent(trimmedQuery)}`)
     } else {
       toast.error(t("searchInvalid"))
     }
@@ -126,7 +127,7 @@ export function SearchBar({ className }: SearchBarProps) {
         <PublicIcon name="search" className="ml-3 size-4 text-foreground/50" />
         <Input
           type="text"
-          placeholder="Search transactions, addresses, domains, and blocks"
+          placeholder={isTestnet ? "Search testnet transactions, addresses, and blocks" : "Search transactions, addresses, domains, and blocks"}
           aria-label={t("searchAria")}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -146,7 +147,7 @@ export function SearchBar({ className }: SearchBarProps) {
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder="Search transactions, addresses, domains, and blocks"
+          placeholder={isTestnet ? "Search testnet transactions, addresses, and blocks" : "Search transactions, addresses, domains, and blocks"}
           value={paletteQuery}
           onValueChange={setPaletteQuery}
           onKeyDown={(event) => {
@@ -159,7 +160,7 @@ export function SearchBar({ className }: SearchBarProps) {
         <CommandList>
           <CommandEmpty>{t("searchInvalid")}</CommandEmpty>
           <CommandGroup heading="Popular">
-            {popularTargets.map((target) => (
+            {(isTestnet ? [{ title: "Example testnet transaction", detail: "Blockstream reference", value: "3fa35efd27803c8bcacea1b15da8aa86a97f203ced6bd7e6dd39b3c93f7e5e2f", href: "/testnet/tx/3fa35efd27803c8bcacea1b15da8aa86a97f203ced6bd7e6dd39b3c93f7e5e2f", icon: "txs" as const }, { title: "Testnet genesis block", detail: "Block height 0", value: "0", href: "/testnet/block/0", icon: "blocks" as const }] : popularTargets).map((target) => (
               <CommandItem
                 key={target.href}
                 value={`${target.title} ${target.detail} ${target.value}`}

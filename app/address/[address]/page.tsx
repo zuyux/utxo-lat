@@ -1,5 +1,6 @@
 "use client"
 
+import { useExplorerNetwork } from "@/lib/explorer-network"
 import { useCallback, useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,7 +29,7 @@ import { MainHeader } from "@/components/main-header"
 import { PublicIcon } from "@/components/public-icon"
 import { Watchlist } from "@/components/watchlist"
 import { useLanguage } from "@/lib/i18n"
-import { apiFetch, type BitcoinUnit, formatBitcoinAmount, type MempoolTransaction } from "@/lib/mempool"
+import { type BitcoinUnit, formatBitcoinAmount, type MempoolTransaction } from "@/lib/mempool"
 
 interface AddressTransaction {
   txid: string
@@ -73,7 +74,7 @@ type UtxoSortField = "value" | "age" | "confirmations" | "outpoint"
 type UtxoSortDirection = "asc" | "desc"
 type UtxoStatusFilter = "all" | "confirmed" | "unconfirmed"
 
-const fetchAddressDetail = async (address: string, signal?: AbortSignal): Promise<AddressDetail> => {
+const fetchAddressDetail = async (address: string, signal: AbortSignal | undefined, apiFetch: typeof import("@/lib/mempool").apiFetch): Promise<AddressDetail> => {
   const stats = await apiFetch<AddressStats>(`/address/${encodeURIComponent(address)}`, signal)
   const [txResult, tipResult, utxoResult] = await Promise.allSettled([
     apiFetch<MempoolTransaction[]>(`/address/${encodeURIComponent(address)}/txs`, signal),
@@ -121,16 +122,18 @@ function mapAddressTransaction(tx: MempoolTransaction, address: string, tip: num
 
 function getAddressType(address: string) {
   const normalized = address.toLowerCase()
-  if (normalized.startsWith("1")) return "P2PKH (Legacy)"
-  if (normalized.startsWith("3")) return "P2SH (Script)"
-  if (normalized.startsWith("bc1p")) return "P2TR (Taproot)"
-  if (normalized.startsWith("bc1q") && normalized.length <= 42) return "P2WPKH (Native SegWit)"
-  if (normalized.startsWith("bc1q")) return "P2WSH (Native SegWit)"
+  if (/^[1mn]/.test(normalized)) return "P2PKH (Legacy)"
+  if (/^[32]/.test(normalized)) return "P2SH (Script)"
+  if (/^(bc1p|tb1p)/.test(normalized)) return "P2TR (Taproot)"
+  if (/^(bc1q|tb1q)/.test(normalized) && normalized.length <= 42) return "P2WPKH (Native SegWit)"
+  if (/^(bc1q|tb1q)/.test(normalized)) return "P2WSH (Native SegWit)"
   return "Unknown"
 }
 
 export default function AddressPage() {
   const params = useParams()
+  const { isTestnet, prefix, apiFetch } = useExplorerNetwork()
+  const coinUnit = isTestnet ? "tBTC" : "BTC"
   const router = useRouter()
   const { dateLocale, locale, t } = useLanguage()
   const address = params.address as string
@@ -149,7 +152,7 @@ export default function AddressPage() {
     if (showLoader) setLoading(true)
     setError("")
     try {
-      const detail = await fetchAddressDetail(address, signal)
+      const detail = await fetchAddressDetail(address, signal, apiFetch)
       setAddressDetail(detail)
       setHasMoreTransactions(detail.transactions.filter((tx) => tx.blockHeight > 0).length >= 25)
       if (showLoader) setVisibleUtxos(50)
@@ -160,7 +163,7 @@ export default function AddressPage() {
     } finally {
       if (showLoader) setLoading(false)
     }
-  }, [address, t])
+  }, [address, t, apiFetch])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -290,7 +293,7 @@ export default function AddressPage() {
     })
   const shownUtxos = managedUtxos.slice(0, visibleUtxos)
   const filteredUtxoTotal = managedUtxos.reduce((sum, utxo) => sum + utxo.value, 0)
-  const formatAmount = (sats: number) => formatBitcoinAmount(sats, bitcoinUnit, locale)
+  const formatAmount = (sats: number) => formatBitcoinAmount(sats, bitcoinUnit, locale).replace("BTC", coinUnit)
 
   return (
     <div className="min-h-screen bg-background pt-14">
@@ -319,7 +322,7 @@ export default function AddressPage() {
             >
               <PublicIcon name="copy" className="h-4 w-4" />
             </Button>
-            <Watchlist addressToAdd={addressDetail.address} />
+            <Watchlist key={prefix} addressToAdd={addressDetail.address} />
             <div className="ml-0 flex rounded-md border p-0.5 sm:ml-2" aria-label="Bitcoin unit">
               <Button
                 variant={bitcoinUnit === "btc" ? "secondary" : "ghost"}
@@ -327,7 +330,7 @@ export default function AddressPage() {
                 className="h-7 px-2"
                 onClick={() => setBitcoinUnit("btc")}
               >
-                BTC
+                {coinUnit}
               </Button>
               <Button
                 variant={bitcoinUnit === "sat" ? "secondary" : "ghost"}
@@ -428,7 +431,7 @@ export default function AddressPage() {
                           <Button
                             variant="link"
                             className="p-0 h-auto font-mono text-sm"
-                            onClick={() => router.push(`/tx/${tx.txid}`)}
+                            onClick={() => router.push(`${prefix}/tx/${tx.txid}`)}
                           >
                             {tx.txid.substring(0, 16)}...
                             <PublicIcon name="externalLink" className="ml-1 h-3 w-3" />
@@ -582,7 +585,7 @@ export default function AddressPage() {
                                 <Button
                                   variant="link"
                                   className="h-auto max-w-64 justify-start p-0 text-left font-mono text-xs"
-                                  onClick={() => router.push(`/tx/${utxo.txid}`)}
+                                  onClick={() => router.push(`${prefix}/tx/${utxo.txid}`)}
                                 >
                                   <span className="truncate">{utxo.txid}:{utxo.vout}</span>
                                   <PublicIcon name="externalLink" className="ml-1.5 size-3 shrink-0" />

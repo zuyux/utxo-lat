@@ -1,6 +1,6 @@
 "use client"
 
-import Link from "next/link"
+import { ExplorerLink as Link, useExplorerNetwork } from "@/lib/explorer-network"
 import { FormEvent, useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 
@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PublicIcon } from "@/components/public-icon"
 import { useLanguage } from "@/lib/i18n"
-import { apiFetch, type BitcoinUnit, formatBitcoinAmount } from "@/lib/mempool"
+import { type BitcoinUnit, formatBitcoinAmount } from "@/lib/mempool"
 
 interface WatchAddress {
   id: string
@@ -40,20 +40,19 @@ interface BalanceState {
   error: string
 }
 
-const storageKey = "utxo-watchlist"
 
-function isBitcoinAddress(address: string) {
-  return /^(1|3|bc1|BC1)/.test(address) && address.length >= 26 && address.length <= 90
+function isBitcoinAddress(address: string, isTestnet = false) {
+  return (isTestnet ? /^(m|n|2|tb1|TB1)/ : /^(1|3|bc1|BC1)/).test(address) && address.length >= 26 && address.length <= 90
 }
 
-function readStoredWatchlist() {
+function readStoredWatchlist(storageKey: string, isTestnet: boolean) {
   try {
     const stored = window.localStorage.getItem(storageKey)
     if (!stored) return []
     const parsed = JSON.parse(stored)
     if (!Array.isArray(parsed)) return []
     return parsed.reduce<WatchAddress[]>((items, item) => {
-      if (typeof item?.address !== "string" || !isBitcoinAddress(item.address)) return items
+      if (typeof item?.address !== "string" || !isBitcoinAddress(item.address, isTestnet)) return items
 
       const address = item.address.trim()
       items.push({
@@ -76,6 +75,8 @@ interface WatchlistProps {
 }
 
 export function Watchlist({ addressToAdd = "", trigger = "button" }: WatchlistProps) {
+  const { isTestnet, apiFetch } = useExplorerNetwork()
+  const storageKey = isTestnet ? "utxo-watchlist-testnet" : "utxo-watchlist"
   const { locale, t } = useLanguage()
   const [open, setOpen] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -120,26 +121,26 @@ export function Watchlist({ addressToAdd = "", trigger = "button" }: WatchlistPr
       })
       return next
     })
-  }, [t])
+  }, [t, apiFetch])
 
   useEffect(() => {
-    const stored = readStoredWatchlist()
+    const stored = readStoredWatchlist(storageKey, isTestnet)
     setAddresses(stored)
     setLoaded(true)
     refreshBalances(stored)
-  }, [refreshBalances])
+  }, [refreshBalances, storageKey, isTestnet])
 
   useEffect(() => {
     if (!loaded) return
     window.localStorage.setItem(storageKey, JSON.stringify(addresses))
-  }, [addresses, loaded])
+  }, [addresses, loaded, storageKey])
 
   useEffect(() => {
     if (open) setAddress(addressToAdd)
   }, [addressToAdd, open])
 
   const totalBalance = addresses.reduce((sum, item) => sum + (balances[item.address]?.balance ?? 0), 0)
-  const formatAmount = (sats: number) => formatBitcoinAmount(sats, bitcoinUnit, locale)
+  const formatAmount = (sats: number) => formatBitcoinAmount(sats, bitcoinUnit, locale).replace("BTC", isTestnet ? "tBTC" : "BTC")
   const savedCurrentAddress = addresses.find(
     (item) => item.address.toLowerCase() === addressToAdd.toLowerCase(),
   )
@@ -147,7 +148,7 @@ export function Watchlist({ addressToAdd = "", trigger = "button" }: WatchlistPr
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const normalizedAddress = address.trim()
-    if (!isBitcoinAddress(normalizedAddress)) {
+    if (!isBitcoinAddress(normalizedAddress, isTestnet)) {
       toast.error(t("watchlistInvalidAddress"))
       return
     }

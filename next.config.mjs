@@ -7,12 +7,12 @@ const nextConfig = {
       {
         source: "/a/:address",
         destination: "/address/:address",
-        permanent: false,
+        permanent: true,
       },
       {
         source: "/b/:identifier",
         destination: "/block/:identifier",
-        permanent: false,
+        permanent: true,
       },
     ]
   },

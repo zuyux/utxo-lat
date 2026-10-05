@@ -2,10 +2,12 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Bai_Jamjuree, Chakra_Petch } from "next/font/google"
 import "./globals.css"
+import { NotificationsProvider } from "@/components/notifications"
 import { SiteFooter } from "@/components/site-footer"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "sonner"
 import { LanguageProvider } from "@/lib/i18n"
+import { pageMetadata, siteDescription, siteName, siteTitle, siteUrl } from "@/lib/seo"
 
 const baiJamjuree = Bai_Jamjuree({
   subsets: ["latin"],
@@ -20,12 +22,17 @@ const chakraPetch = Chakra_Petch({
 })
 
 export const metadata: Metadata = {
-  title: {
-    default: "utxo.lat — Explorador de Bitcoin",
-    template: "%s | utxo.lat",
+  ...pageMetadata(siteTitle, siteDescription, "/"),
+  metadataBase: new URL(siteUrl),
+  applicationName: siteName,
+  title: { default: siteTitle, template: `%s | ${siteName}` },
+  manifest: "/site.webmanifest",
+  category: "technology",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 },
   },
-  description: "Explorador en tiempo real de la red Bitcoin con precios, transacciones y datos de mempool",
-  metadataBase: new URL("https://utxo.lat"),
 }
 
 export default function RootLayout({
@@ -38,8 +45,10 @@ export default function RootLayout({
       <body className={`${baiJamjuree.variable} ${chakraPetch.variable}`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <LanguageProvider>
-            {children}
-            <SiteFooter />
+            <NotificationsProvider>
+              {children}
+              <SiteFooter />
+            </NotificationsProvider>
           </LanguageProvider>
           <Toaster />
         </ThemeProvider>

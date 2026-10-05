@@ -1,5 +1,6 @@
 "use client"
 
+import { useExplorerNetwork } from "@/lib/explorer-network"
 import Link from "next/link"
 import { Github } from "lucide-react"
 import { languages, useLanguage } from "@/lib/i18n"
@@ -7,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Watchlist } from "@/components/watchlist"
 
 export function SiteFooter() {
+  const { prefix, isTestnet } = useExplorerNetwork()
   const { language, setLanguage, t } = useLanguage()
 
   return (
@@ -14,7 +16,13 @@ export function SiteFooter() {
       <div className="mx-auto flex min-h-14 max-w-2xl flex-col items-center justify-between gap-2 px-4 py-3 text-xs text-muted-foreground sm:flex-row">
         <p>MIT License · 2026 · <Link href="https://zuyux.xyz" target="_blank">zuyux</Link></p>
         <div className="flex items-center gap-3">
-          <Watchlist trigger="icon" />
+          <Link
+            href={isTestnet ? "/" : "/testnet"}
+            className="rounded-md border px-2 py-1 text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {isTestnet ? "Mainnet" : "Testnet"}
+          </Link>
+          <Watchlist key={prefix} trigger="icon" />
           <Select value={language} onValueChange={setLanguage}>
             <SelectTrigger className="h-8 w-[68px] text-xs" aria-label={t("language")}>
               <SelectValue />

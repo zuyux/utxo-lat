@@ -38,6 +38,11 @@ function formatPrice(value: number, currency: CurrencyCode, locale: string, maxi
   }).format(value)
 }
 
+function formatFiatAmount(value: number) {
+  if (value === 0 || Math.abs(value) >= 0.01) return value.toFixed(2)
+  return value.toFixed(8).replace(/0+$/, "")
+}
+
 function cryptoAmountToBtc(value: string, unit: BitcoinUnit) {
   const amount = Number(value)
   if (!Number.isFinite(amount)) return null
@@ -105,7 +110,7 @@ export function CurrencyConverter() {
     }
     const btcAmount = cryptoAmountToBtc(bitcoinAmount, bitcoinUnit)
     const selectedPrice = prices[selectedCurrency]
-    setFiatAmount(btcAmount !== null && hasPrice(selectedPrice) ? (btcAmount * selectedPrice).toFixed(2) : "")
+    setFiatAmount(btcAmount !== null && hasPrice(selectedPrice) ? formatFiatAmount(btcAmount * selectedPrice) : "")
   }, [bitcoinAmount, bitcoinUnit, editingAmount, prices, selectedCurrency])
 
   const handleBitcoinChange = (value: string) => {
@@ -118,7 +123,7 @@ export function CurrencyConverter() {
     }
     const btcAmount = cryptoAmountToBtc(value, bitcoinUnit)
     const selectedPrice = prices[selectedCurrency]
-    setFiatAmount(btcAmount !== null && hasPrice(selectedPrice) ? (btcAmount * selectedPrice).toFixed(2) : "")
+    setFiatAmount(btcAmount !== null && hasPrice(selectedPrice) ? formatFiatAmount(btcAmount * selectedPrice) : "")
   }
 
   const handleFiatChange = (value: string) => {

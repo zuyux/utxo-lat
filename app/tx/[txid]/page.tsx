@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
-import Link from "next/link"
+import { useExplorerNetwork } from "@/lib/explorer-network"
+import { useEffect, useMemo, useState } from "react"
+import { ExplorerLink as Link } from "@/lib/explorer-network"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -12,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useLanguage } from "@/lib/i18n"
-import { apiFetch, type MempoolTransaction, satsToBtc } from "@/lib/mempool"
+import { type MempoolTransaction, satsToBtc } from "@/lib/mempool"
 
 interface Outspend {
   spent: boolean
@@ -57,6 +58,8 @@ interface RbfHistory {
 
 export default function TransactionPage() {
   const { txid } = useParams<{ txid: string }>()
+  const { isTestnet, apiFetch } = useExplorerNetwork()
+  const coinUnit = isTestnet ? "tBTC" : "BTC"
   const router = useRouter()
   const { locale, t } = useLanguage()
   const [transaction, setTransaction] = useState<MempoolTransaction | null>(null)
@@ -67,44 +70,64 @@ export default function TransactionPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
 
-  const loadTransaction = useCallback(async (signal?: AbortSignal, showLoader = false) => {
-    if (showLoader) setLoading(true)
-    setError("")
-    try {
-      const tx = await apiFetch<MempoolTransaction>(`/tx/${txid}`, signal)
-      setTransaction(tx)
-      const [spends, height, cpfpInfo, history] = await Promise.allSettled([
-        apiFetch<Outspend[]>(`/tx/${txid}/outspends`, signal),
-        apiFetch<number>("/blocks/tip/height", signal),
-        apiFetch<CpfpInfo>(`/v1/cpfp/${txid}`, signal),
-        apiFetch<RbfHistory>(`/v1/tx/${txid}/rbf`, signal),
-      ])
-      if (spends.status === "fulfilled") setOutspends(spends.value)
-      if (height.status === "fulfilled") setTipHeight(height.value)
-      if (cpfpInfo.status === "fulfilled") setCpfp(cpfpInfo.value)
-      if (history.status === "fulfilled") setRbfHistory(history.value)
-    } catch (requestError) {
-      if (requestError instanceof DOMException && requestError.name === "AbortError") return
-      if (showLoader) setTransaction(null)
-      setError(requestError instanceof Error ? requestError.message : t("unableTransaction"))
-    } finally {
-      if (showLoader) setLoading(false)
-    }
-  }, [txid, t])
-
   useEffect(() => {
     const controller = new AbortController()
-    loadTransaction(controller.signal, true)
+    const { signal } = controller
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    let failedAttempts = 0
+    let hasTransaction = false
+    const maxInitialAttempts = 4
 
-    const interval = window.setInterval(() => {
-      loadTransaction()
-    }, 5_000)
+    setLoading(true)
+    setError("")
+    setTransaction(null)
+    setOutspends([])
+    setTipHeight(null)
+    setCpfp(null)
+    setRbfHistory(null)
 
+    const load = async () => {
+      let retryDelay = 5_000
+      try {
+        const tx = await apiFetch<MempoolTransaction>(`/tx/${txid}`, signal)
+        if (signal.aborted) return
+        hasTransaction = true
+        failedAttempts = 0
+        setTransaction(tx)
+        setError("")
+        setLoading(false)
+        const [spends, height, cpfpInfo, history] = await Promise.allSettled([
+          apiFetch<Outspend[]>(`/tx/${txid}/outspends`, signal),
+          apiFetch<number>("/blocks/tip/height", signal),
+          apiFetch<CpfpInfo>(`/v1/cpfp/${txid}`, signal),
+          apiFetch<RbfHistory>(`/v1/tx/${txid}/rbf`, signal),
+        ])
+        if (signal.aborted) return
+        if (spends.status === "fulfilled") setOutspends(spends.value)
+        if (height.status === "fulfilled") setTipHeight(height.value)
+        if (cpfpInfo.status === "fulfilled") setCpfp(cpfpInfo.value)
+        if (history.status === "fulfilled") setRbfHistory(history.value)
+      } catch (requestError) {
+        if (signal.aborted) return
+        failedAttempts += 1
+        if (!hasTransaction && failedAttempts < maxInitialAttempts) {
+          retryDelay = 2_000
+        } else {
+          setError(requestError instanceof Error ? requestError.message : t("unableTransaction"))
+          setLoading(false)
+        }
+      } finally {
+        // Schedule after completion so retries and refreshes never overlap.
+        if (!signal.aborted) timeout = setTimeout(() => void load(), retryDelay)
+      }
+    }
+
+    void load()
     return () => {
       controller.abort()
-      window.clearInterval(interval)
+      clearTimeout(timeout)
     }
-  }, [loadTransaction])
+  }, [txid, t, apiFetch])
 
   const totals = useMemo(() => {
     const input = transaction?.vin.reduce((sum, vin) => sum + (vin.prevout?.value ?? 0), 0) ?? 0
@@ -128,7 +151,7 @@ export default function TransactionPage() {
       </div>
     )
   }
-  if (error || !transaction) {
+  if (!transaction) {
     return <PageMessage onBack={() => router.back()} title={t("transactionNotFound")} message={error || t("noTransactionData")} />
   }
 
@@ -154,12 +177,14 @@ export default function TransactionPage() {
       <MainHeader />
 
       <main className="container mx-auto px-4 py-6">
+        {error && <p role="status" className="mb-4 text-sm text-muted-foreground">{error}. Retrying… Showing previously loaded transaction data.</p>}
         <div className="mb-6">
           <Button variant="ghost" onClick={() => router.back()}><PublicIcon name="arrow-left" className="mr-2 size-4" />{t("back")}</Button>
         </div>
 
         <div className="mb-6">
           <h1 className="mb-2 text-3xl font-bold">{t("transactionDetails")}</h1>
+          {transaction.status.block_hash && <Link className="mb-2 block text-sm text-primary hover:underline" href={`/block/${transaction.status.block_hash}`}>Block {transaction.status.block_height?.toLocaleString(locale)}</Link>}
           <div className="flex items-center gap-2">
             <code className="min-w-0 break-all rounded bg-muted px-2 py-1 text-sm">{transaction.txid}</code>
             <Button variant="ghost" size="sm" onClick={() => copy(transaction.txid)} aria-label={t("copyTxId")}><PublicIcon name="copy" className="size-4" /></Button>
@@ -173,14 +198,14 @@ export default function TransactionPage() {
             [t("timestamp"), transaction.status.block_time ? new Date(transaction.status.block_time * 1000).toLocaleString(locale) : t("pending")],
           ]} />
           <InfoCard title={t("transactionInfo")} rows={[
-            [t("fee"), isCoinbase ? t("coinbaseNoFee") : `${satsToBtc(transaction.fee)} BTC`],
+            [t("fee"), isCoinbase ? t("coinbaseNoFee") : `${satsToBtc(transaction.fee)} ${coinUnit}`],
             [t("size"), `${transaction.size.toLocaleString(locale)} bytes`],
             [t("virtualSize"), `${vsize.toLocaleString(locale, { maximumFractionDigits: 2 })} vB`],
             [t("feeRate"), isCoinbase ? "—" : `${nominalFeeRate.toFixed(2)} sat/vB`],
           ]} />
           <InfoCard title={t("amounts")} rows={[
-            [t("totalInput"), isCoinbase ? t("newlyIssuedCoins") : `${satsToBtc(totals.input)} BTC`],
-            [t("totalOutput"), `${satsToBtc(totals.output)} BTC`],
+            [t("totalInput"), isCoinbase ? t("newlyIssuedCoins") : `${satsToBtc(totals.input)} ${coinUnit}`],
+            [t("totalOutput"), `${satsToBtc(totals.output)} ${coinUnit}`],
           ]} />
         </div>
 
@@ -313,7 +338,7 @@ export default function TransactionPage() {
                   ) : (
                     <>
                       <Address value={input.prevout?.scriptpubkey_address} fallback={input.prevout?.scriptpubkey_type || t("unknownScript")} />
-                      <div className="mt-2 font-medium">{input.prevout ? satsToBtc(input.prevout.value) : t("unknown")} BTC</div>
+                      <div className="mt-2 font-medium">{input.prevout ? satsToBtc(input.prevout.value) : t("unknown")} {coinUnit}</div>
                       <Link className="mt-2 block break-all font-mono text-xs text-muted-foreground hover:underline" href={`/tx/${input.txid}`}>
                         {t("previousOutput")}: {input.txid}:{input.vout}
                       </Link>
@@ -339,12 +364,12 @@ export default function TransactionPage() {
               {transaction.vout.map((output, index) => (
                 <div key={`${output.scriptpubkey}-${index}`} className="rounded-lg border p-4">
                   <Address value={output.scriptpubkey_address} fallback={output.scriptpubkey_type} />
-                  <div className="mt-2 font-medium">{satsToBtc(output.value)} BTC</div>
+                  <div className="mt-2 font-medium">{satsToBtc(output.value)} {coinUnit}</div>
                   <div className="mt-2 font-mono text-xs text-muted-foreground">
                     {t("script")}: {output.scriptpubkey_type}
                   </div>
                   <Badge variant={outspends[index]?.spent ? "secondary" : "default"} className="mt-2">
-                    {outspends[index]?.spent ? t("spent") : t("unspent")}
+                    {outspends[index] ? (outspends[index].spent ? t("spent") : t("unspent")) : t("unavailable")}
                   </Badge>
                   {outspends[index]?.txid && (
                     <Link href={`/tx/${outspends[index].txid}`} className="ml-2 text-xs text-muted-foreground hover:underline">{t("viewSpendingTx")}</Link>
@@ -354,6 +379,7 @@ export default function TransactionPage() {
             </CardContent>
           </Card>
         </div>
+        <details className="mt-6 rounded-lg border p-4"><summary className="cursor-pointer text-sm font-semibold">Transaction data · scripts and witness</summary><pre className="mt-4 max-h-96 overflow-auto whitespace-pre-wrap break-all font-mono text-xs">{JSON.stringify(transaction, null, 2)}</pre></details>
       </main>
     </div>
   )
@@ -387,6 +413,8 @@ function PolicyMetric({ label, value, detail }: { label: string; value: string; 
 }
 
 function DependencyLinks({ title, transactions }: { title: string; transactions: CpfpRelative[] }) {
+  const { isTestnet } = useExplorerNetwork()
+  const coinUnit = isTestnet ? "tBTC" : "BTC"
   const unique = Array.from(new Map(transactions.map((transaction) => [transaction.txid, transaction])).values())
   return (
     <div className="mt-6 border-t pt-5">
@@ -396,7 +424,7 @@ function DependencyLinks({ title, transactions }: { title: string; transactions:
           <Link key={transaction.txid} href={`/tx/${transaction.txid}`} className="rounded-md border p-3 hover:bg-muted/50">
             <p className="break-all font-mono text-xs">{transaction.txid}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {(transaction.fee / (transaction.weight / 4)).toFixed(2)} sat/vB · {satsToBtc(transaction.fee)} BTC fee
+              {(transaction.fee / (transaction.weight / 4)).toFixed(2)} sat/vB · {satsToBtc(transaction.fee)} {coinUnit} fee
             </p>
           </Link>
         ))}
